@@ -1,18 +1,6 @@
 ARG BUILD_FROM
-
-# --- Build tesla-control with Go 1.23 ---
-FROM golang:1.23-alpine AS go-builder
-RUN apk add --no-cache git \
-    && git clone --depth 1 https://github.com/teslamotors/vehicle-command.git /src \
-    && cd /src \
-    && CGO_ENABLED=0 go build -o /go/bin/tesla-control ./cmd/tesla-control
-
-# --- Final add-on image ---
 FROM ${BUILD_FROM}
 ARG BUILD_VERSION=dev
-
-# Copy pre-built tesla-control
-COPY --from=go-builder /go/bin/tesla-control /usr/local/bin/tesla-control
 
 # Install Python, pip, and cloudflared
 RUN apk add --no-cache \

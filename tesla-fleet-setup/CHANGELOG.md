@@ -5,16 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2026-03-06
+## [0.2.6] - 2026-03-06
 
-### Added
+### Changed
 
-- **Signed commands (security level 10)**: Bundle Tesla's `tesla-control` binary
-  for end-to-end encrypted vehicle commands
-- **Key pairing**: New wizard step to enroll your key on the vehicle via NFC card tap
-- Security level badge shows current level (7 = read-only, 10 = signed commands)
-- Commands (lock, flash, honk) now use signed protocol when key is paired
-- Fallback to unsigned REST API when key is not yet paired
+- Removed Go/tesla-control from Docker build — fast builds again
+- Key enrollment for security level 10 is handled by the HA Tesla Fleet
+  integration itself (via Application Credentials + key pairing in the car)
+- Added step-by-step guide for completing setup in HA (Application Credentials,
+  integration setup, key enrollment with NFC card tap)
+
+### Fixed
+
+- Tesla API "not_a_JSON_request" error: send `{}` body for commands with no parameters
 
 ## [0.1.9] - 2026-03-06
 

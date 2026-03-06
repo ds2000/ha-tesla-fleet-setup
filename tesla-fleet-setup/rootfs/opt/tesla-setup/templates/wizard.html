@@ -800,66 +800,10 @@
         </p>
       </div>
 
-      <!-- Key Pairing Section -->
-      <div style="text-align: left;" id="key-pairing-section">
-        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">Pair Your Key with Vehicle</h2>
-        <p class="subtitle">
-          Enroll your setup key on the vehicle to enable signed commands (lock, unlock, climate, etc.)
-          at full security level.
-        </p>
-
-        <div class="info-box info">
-          <strong>Why is this needed?</strong> Tesla requires commands to be cryptographically signed
-          with a key that the vehicle trusts. Without pairing, only read-only data access works.
-          After pairing, you get full control: lock, unlock, climate, charging, and more.
-        </div>
-
-        <div id="pair-needs-vehicles" style="display:none">
-          <div class="info-box warning">
-            First, click <strong>Test</strong> on "List Vehicles" below to load your vehicles, then come back here to pair.
-          </div>
-        </div>
-
-        <div id="pair-ready" style="display:none">
-          <div class="vehicle-selector">
-            <label for="pair-vehicle-select">Vehicle:</label>
-            <select id="pair-vehicle-select"></select>
-          </div>
-
-          <ol class="guide-steps" style="margin-bottom: 16px;">
-            <li>Make sure your vehicle is <strong>awake</strong> (use the Wake Up button below if needed)</li>
-            <li>Click <strong>"Send Pairing Request"</strong> below</li>
-            <li>Go to your vehicle and <strong>tap your NFC key card</strong> on the center console when prompted
-              <span class="tip">The card reader is between the two front cupholders. You have about 30 seconds to tap.</span>
-            </li>
-          </ol>
-
-          <div class="status-row" id="pair-status">
-            <div class="status-icon pending" id="pair-icon">&#128273;</div>
-            <span id="pair-text">Ready to send pairing request</span>
-          </div>
-
-          <div class="btn-row" style="margin-bottom: 20px;">
-            <button class="btn btn-primary" onclick="pairKey()" id="pair-btn">Send Pairing Request</button>
-          </div>
-        </div>
-
-        <div id="pair-done" class="info-box success" style="display:none">
-          Key pairing request sent! Commands will now use signed protocol (security level 10).
-        </div>
-
-        <hr class="divider">
-      </div>
-
       <!-- API Testing Section -->
       <div style="text-align: left;">
         <h2 style="font-size: 1.15rem; margin-bottom: 6px;">Test Your API Connection</h2>
         <p class="subtitle">Verify that your credentials work by testing popular Tesla Fleet APIs.</p>
-
-        <div id="security-level-badge" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid var(--border);">
-          <span style="font-size:0.82rem;color:var(--text-muted);">Security Level:</span>
-          <span id="security-level-text" style="font-weight:600;font-size:0.85rem;">Loading...</span>
-        </div>
 
         <div class="vehicle-selector" id="vehicle-selector" style="display:none">
           <label for="vehicle-select">Vehicle:</label>
@@ -921,47 +865,62 @@
           <div class="api-card" id="api-lock">
             <div class="api-indicator"></div>
             <div class="api-info">
-              <div class="api-name">Lock <span id="lock-badge" class="api-desc" style="display:inline"></span></div>
+              <div class="api-name">Lock</div>
               <div class="api-desc">Test door lock command (locks the vehicle)</div>
               <div class="api-result" id="api-lock-result"></div>
             </div>
-            <button class="btn-test" onclick="testSignedCommand('lock', 'api-lock')" disabled>Test Lock</button>
+            <button class="btn-test" onclick="testCommand('door_lock', 'api-lock')" disabled>Test Lock</button>
           </div>
 
           <div class="api-card" id="api-flash">
             <div class="api-indicator"></div>
             <div class="api-info">
-              <div class="api-name">Flash Lights <span id="flash-badge" class="api-desc" style="display:inline"></span></div>
+              <div class="api-name">Flash Lights</div>
               <div class="api-desc">Flash the vehicle headlights</div>
               <div class="api-result" id="api-flash-result"></div>
             </div>
-            <button class="btn-test" onclick="testSignedCommand('flash-lights', 'api-flash')" disabled>Test Flash</button>
+            <button class="btn-test" onclick="testCommand('flash_lights', 'api-flash')" disabled>Test Flash</button>
           </div>
 
           <div class="api-card" id="api-honk">
             <div class="api-indicator"></div>
             <div class="api-info">
-              <div class="api-name">Honk Horn <span id="honk-badge" class="api-desc" style="display:inline"></span></div>
+              <div class="api-name">Honk Horn</div>
               <div class="api-desc">Sound the vehicle horn</div>
               <div class="api-result" id="api-honk-result"></div>
             </div>
-            <button class="btn-test danger" onclick="testSignedCommand('honk', 'api-honk')" disabled>Test Honk</button>
+            <button class="btn-test danger" onclick="testCommand('honk_horn', 'api-honk')" disabled>Test Honk</button>
           </div>
         </div>
 
-        <div class="info-box info" style="margin-top: 20px;">
-          <strong>Next steps:</strong>
-          <ol style="margin: 8px 0 0 20px; padding: 0;">
-            <li>Go to <strong>Settings &rarr; Devices &amp; Services &rarr; Application Credentials</strong></li>
-            <li>Click <strong>Add Credentials</strong>, select <strong>Tesla Fleet</strong></li>
-            <li>Enter the same Client ID and Client Secret from Step 3</li>
-            <li>Then add the <strong>Tesla Fleet</strong> integration &mdash; it will use your personal credentials</li>
-          </ol>
-        </div>
+        <hr class="divider">
 
-        <div class="info-box success">
+        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">Finish Setup in Home Assistant</h2>
+        <p class="subtitle">Add your credentials to the Tesla Fleet integration to enable full vehicle control.</p>
+
+        <ol class="guide-steps">
+          <li>
+            Go to <strong>Settings &rarr; Devices &amp; Services &rarr; Application Credentials</strong>
+            <span class="tip">Click the 3-dot menu in the top right if you don't see Application Credentials</span>
+          </li>
+          <li>
+            Click <strong>Add Credentials</strong>, select <strong>Tesla Fleet</strong>,
+            and enter the same <strong>Client ID</strong> and <strong>Client Secret</strong> from Step 3
+          </li>
+          <li>
+            Go to <strong>Settings &rarr; Devices &amp; Services &rarr; Add Integration</strong>,
+            search for <strong>Tesla Fleet</strong>, and follow the prompts
+          </li>
+          <li>
+            The integration will ask to <strong>enroll your key on the vehicle</strong> &mdash;
+            go to your car and <strong>tap your NFC key card</strong> on the center console when prompted
+            <span class="tip">This pairs a signing key with your vehicle for secure commands (lock, unlock, climate, etc.) &mdash; reaching security level 10</span>
+          </li>
+        </ol>
+
+        <div class="info-box success" style="margin-top: 16px;">
           Your credentials and tokens are stored securely on this device.
-          The tunnel has been shut down &mdash; only this local add-on can access your tokens.
+          The tunnel has been shut down. You can safely remove this add-on once the integration is working.
         </div>
       </div>
     </div>
@@ -973,8 +932,6 @@
     let currentStep = 1;
     let publicKeyUrl = '';
     let urlMethod = '';
-    let hasTeslaControl = false;
-    let keyPaired = false;
 
     // --- Init ---
     async function init() {
@@ -986,8 +943,6 @@
       try {
         const resp = await fetch(`api/status`);
         const data = await resp.json();
-        hasTeslaControl = data.has_tesla_control || false;
-        keyPaired = data.key_paired || false;
         if (data.has_tokens) {
           showComplete();
         } else if (data.step) {
@@ -1027,30 +982,6 @@
       document.querySelectorAll('.step-card').forEach(el => el.classList.remove('visible'));
       document.getElementById('step-complete').classList.add('visible');
       document.querySelectorAll('.progress-step').forEach(el => el.classList.add('complete'));
-      updateSecurityLevel();
-    }
-
-    function updateSecurityLevel() {
-      const el = document.getElementById('security-level-text');
-      const section = document.getElementById('key-pairing-section');
-      if (hasTeslaControl && keyPaired) {
-        el.innerHTML = '<span style="color:var(--success)">10 — Signed Commands</span>';
-        section.querySelector('#pair-ready').style.display = 'none';
-        section.querySelector('#pair-needs-vehicles').style.display = 'none';
-        section.querySelector('#pair-done').style.display = 'block';
-      } else if (hasTeslaControl) {
-        el.innerHTML = '<span style="color:var(--warning)">7 — Read Only</span> <span style="font-weight:normal;font-size:0.78rem;color:var(--text-muted)">(pair key to reach 10)</span>';
-        if (vehicles.length > 0) {
-          section.querySelector('#pair-ready').style.display = 'block';
-          section.querySelector('#pair-needs-vehicles').style.display = 'none';
-        } else {
-          section.querySelector('#pair-needs-vehicles').style.display = 'block';
-          section.querySelector('#pair-ready').style.display = 'none';
-        }
-      } else {
-        el.innerHTML = '<span style="color:var(--text-muted)">7 — Read Only</span> <span style="font-weight:normal;font-size:0.78rem;color:var(--text-muted)">(tesla-control not available)</span>';
-        section.style.display = 'none';
-      }
     }
 
     // --- Step 1: Generate Keys ---
@@ -1316,25 +1247,17 @@
           const names = list.map(v => v.display_name || v.vin || 'Unknown');
           setApiStatus('api-vehicles', 'ok', `Found ${list.length} vehicle${list.length > 1 ? 's' : ''}: ${names.join(', ')}`);
 
-          // Populate vehicle selectors
+          // Populate vehicle selector
           const sel = document.getElementById('vehicle-select');
-          const pairSel = document.getElementById('pair-vehicle-select');
           sel.innerHTML = '';
-          if (pairSel) pairSel.innerHTML = '';
           list.forEach(v => {
             const opt = document.createElement('option');
             opt.value = v.id;
             opt.textContent = `${v.display_name || 'Vehicle'} (${v.vin || '?'}) — ${v.state || '?'}`;
             sel.appendChild(opt);
-            if (pairSel) {
-              const opt2 = opt.cloneNode(true);
-              opt2.dataset.vin = v.vin || '';
-              pairSel.appendChild(opt2);
-            }
           });
           document.getElementById('vehicle-selector').style.display = 'flex';
           enableVehicleTests(true);
-          updateSecurityLevel();
         } else {
           setApiStatus('api-vehicles', 'fail', data.error || 'Failed to list vehicles');
         }
@@ -1419,100 +1342,27 @@
       }
     }
 
-    async function testSignedCommand(command, cardId) {
+    async function testCommand(command, cardId) {
       const vid = getSelectedVehicleId();
       if (!vid) return;
 
-      // Get the VIN from our vehicles list
-      const vehicle = vehicles.find(v => String(v.id) === String(vid));
-      const vin = vehicle?.vin;
-
       setApiStatus(cardId, 'running', 'Sending...');
 
-      // Use signed command if tesla-control is available and key is paired
-      if (hasTeslaControl && keyPaired && vin) {
-        try {
-          const resp = await fetch('api/signed-command', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ vin, command }),
-          });
-          const data = await resp.json();
-          if (data.success) {
-            setApiStatus(cardId, 'ok', 'Signed command sent successfully');
-          } else {
-            setApiStatus(cardId, 'fail', data.error || 'Signed command failed');
-          }
-        } catch (e) {
-          setApiStatus(cardId, 'fail', 'Network error: ' + e.message);
-        }
-        return;
-      }
-
-      // Fallback to unsigned REST API command
-      const unsignedMap = { lock: 'door_lock', 'flash-lights': 'flash_lights', honk: 'honk_horn' };
-      const unsignedCmd = unsignedMap[command] || command;
-
       try {
-        const resp = await fetch(`api/vehicles/${vid}/command/${unsignedCmd}`, { method: 'POST' });
+        const resp = await fetch(`api/vehicles/${vid}/command/${command}`, { method: 'POST' });
         const data = await resp.json();
         if (data.success) {
           const r = data.data?.response;
           if (r && r.result === true) {
-            setApiStatus(cardId, 'ok', 'Command sent (unsigned)');
+            setApiStatus(cardId, 'ok', 'Command sent successfully');
           } else {
-            setApiStatus(cardId, 'fail', r?.reason || 'Command rejected — pair key for signed commands');
+            setApiStatus(cardId, 'fail', r?.reason || 'Command rejected — vehicle may be asleep');
           }
         } else {
           setApiStatus(cardId, 'fail', data.error || 'Command failed');
         }
       } catch (e) {
         setApiStatus(cardId, 'fail', 'Network error: ' + e.message);
-      }
-    }
-
-    async function pairKey() {
-      const sel = document.getElementById('pair-vehicle-select');
-      const vin = sel?.options[sel.selectedIndex]?.dataset?.vin;
-      if (!vin) {
-        alert('Please load vehicles first by clicking Test on "List Vehicles"');
-        return;
-      }
-
-      const icon = document.getElementById('pair-icon');
-      const text = document.getElementById('pair-text');
-      const btn = document.getElementById('pair-btn');
-      icon.className = 'status-icon running';
-      icon.innerHTML = '<span class="spinner"></span>';
-      text.textContent = 'Sending pairing request to vehicle... Tap your NFC key card on the center console now.';
-      btn.disabled = true;
-
-      try {
-        const resp = await fetch('api/pair-key', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vin }),
-        });
-        const data = await resp.json();
-        if (data.success) {
-          icon.className = 'status-icon success';
-          icon.textContent = '\u2713';
-          text.textContent = 'Key paired successfully! Signed commands are now available.';
-          keyPaired = true;
-          document.getElementById('pair-done').style.display = 'block';
-          updateSecurityLevel();
-        } else {
-          icon.className = 'status-icon error';
-          icon.textContent = '!';
-          text.textContent = data.error || 'Pairing failed — make sure the vehicle is awake and try again';
-          btn.disabled = false;
-          btn.textContent = 'Retry Pairing';
-        }
-      } catch (e) {
-        icon.className = 'status-icon error';
-        icon.textContent = '!';
-        text.textContent = 'Network error: ' + e.message;
-        btn.disabled = false;
       }
     }
 

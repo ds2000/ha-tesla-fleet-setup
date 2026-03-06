@@ -15,7 +15,6 @@ from aiohttp import web
 import keygen
 import tunnel
 import tesla_api
-import tesla_command
 import ha_discovery
 
 # --- Logging setup: suppress credential leaks ---
@@ -48,7 +47,6 @@ state = {
     "partner_registered": False,
     "oauth_state": None,
     "tokens": None,
-    "key_paired": False,
 }
 
 
@@ -89,8 +87,6 @@ async def api_status(request):
         "partner_registered": state["partner_registered"],
         "has_credentials": state["client_id"] is not None,
         "has_tokens": state["tokens"] is not None,
-        "key_paired": state.get("key_paired", False),
-        "has_tesla_control": tesla_command.is_available(),
     })
 
 
@@ -345,56 +341,6 @@ async def api_command(request):
     return web.json_response(result)
 
 
-async def api_pair_key(request):
-    """Send a key pairing request to a vehicle.
-
-    The user must then tap their NFC key card on the center console to approve.
-    """
-    token, err = await _get_access_token()
-    if err:
-        return web.json_response({"success": False, "error": err}, status=401)
-    data = await request.json()
-    vin = data.get("vin", "").strip().upper()
-    if not vin or len(vin) != 17:
-        return web.json_response({"success": False, "error": "Valid 17-character VIN required"}, status=400)
-
-    result = await tesla_command.add_key_request(token, vin)
-    if result["success"]:
-        state["key_paired"] = True
-        save_state()
-    return web.json_response(result)
-
-
-async def api_signed_command(request):
-    """Send a signed command to a vehicle via tesla-control (security level 10)."""
-    token, err = await _get_access_token()
-    if err:
-        return web.json_response({"success": False, "error": err}, status=401)
-    data = await request.json()
-    vin = data.get("vin", "").strip().upper()
-    command = data.get("command", "").strip()
-    args = data.get("args", [])
-
-    if not vin:
-        return web.json_response({"success": False, "error": "VIN required"}, status=400)
-    if not command:
-        return web.json_response({"success": False, "error": "Command required"}, status=400)
-
-    # Whitelist of safe commands
-    allowed = {
-        "lock", "unlock", "flash-lights", "honk", "climate-on", "climate-off",
-        "climate-set-temp", "charging-start", "charging-stop", "charging-set-limit",
-        "trunk-open", "frunk-open", "charge-port-open", "charge-port-close",
-        "windows-vent", "windows-close", "sentry-mode", "seat-heater",
-        "steering-wheel-heater", "wake",
-    }
-    if command not in allowed:
-        return web.json_response({"success": False, "error": f"Command '{command}' not allowed"}, status=403)
-
-    result = await tesla_command.signed_command(token, vin, command, args or None)
-    return web.json_response(result)
-
-
 async def api_reset(request):
     """Reset wizard state (start over)."""
     global state
@@ -490,10 +436,6 @@ def create_app() -> web.Application:
     app.router.add_get("/api/vehicles/{vehicle_id}/data", api_vehicle_data)
     app.router.add_post("/api/vehicles/{vehicle_id}/wake", api_wake)
     app.router.add_post("/api/vehicles/{vehicle_id}/command/{command}", api_command)
-
-    # Signed command endpoints (security level 10)
-    app.router.add_post("/api/pair-key", api_pair_key)
-    app.router.add_post("/api/signed-command", api_signed_command)
 
     # Static files
     app.router.add_static("/static", STATIC_DIR)
