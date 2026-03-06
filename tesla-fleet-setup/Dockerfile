@@ -1,5 +1,6 @@
 ARG BUILD_FROM
 FROM ${BUILD_FROM}
+ARG BUILD_VERSION=dev
 
 # Install Python, pip, and cloudflared
 RUN apk add --no-cache \
@@ -28,5 +29,7 @@ COPY screenshots /opt/tesla-setup/static/screenshots/
 COPY run.sh /
 
 RUN chmod a+x /run.sh
+
+ENV BUILD_VERSION=${BUILD_VERSION}
 
 CMD ["/run.sh"]

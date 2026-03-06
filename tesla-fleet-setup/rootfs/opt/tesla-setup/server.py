@@ -29,6 +29,7 @@ logger = logging.getLogger("tesla-setup")
 logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
 
 PORT = int(os.environ.get("INGRESS_PORT", "8099"))
+VERSION = os.environ.get("BUILD_VERSION", "dev")
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 STATE_PATH = Path("/data/state.json")
@@ -252,6 +253,7 @@ async def wizard_page(request):
     ingress_path = request.headers.get("X-Ingress-Path", "")
     base_url = f"{ingress_path}/" if ingress_path else "/"
     html = html.replace("<head>", f'<head>\n  <base href="{base_url}">', 1)
+    html = html.replace("__VERSION__", VERSION)
     return web.Response(text=html, content_type="text/html")
 
 
@@ -267,8 +269,24 @@ async def on_shutdown(app):
     await tunnel_manager.stop()
 
 
+TUNNEL_ALLOWED_PATHS = {"/.well-known/appkeys", "/oauth/callback"}
+
+
+@web.middleware
+async def tunnel_guard(request, handler):
+    """Block non-allowed paths when accessed through the Cloudflare tunnel.
+
+    Only /.well-known/appkeys and /oauth/callback are exposed to the internet.
+    All other paths (wizard UI, API endpoints) return 404 when accessed via tunnel.
+    """
+    host = request.headers.get("Host", "")
+    if ".trycloudflare.com" in host and request.path not in TUNNEL_ALLOWED_PATHS:
+        raise web.HTTPNotFound()
+    return await handler(request)
+
+
 def create_app() -> web.Application:
-    app = web.Application()
+    app = web.Application(middlewares=[tunnel_guard])
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
 

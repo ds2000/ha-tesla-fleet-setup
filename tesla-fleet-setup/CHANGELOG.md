@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-03-06
+
+### Fixed
+
+- SUPERVISOR_TOKEN detection: try s6 container environment files as fallback
+- Improved Nabu Casa / external URL detection with diagnostic logging
+- Version number now shown in wizard UI header
+
+### Security
+
+- Tunnel guard middleware: Cloudflare tunnel now only exposes `/.well-known/appkeys`
+  and `/oauth/callback` — all other paths return 404 when accessed via tunnel
+
 ## [0.1.2] - 2026-03-06
 
 ### Fixed
