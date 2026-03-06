@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Starting Tesla Fleet Setup add-on..."
+echo "Starting Tesla Fleet Setup add-on (version: ${BUILD_VERSION:-unknown})..."
 
 # Ensure data directory exists for persistent key storage
 mkdir -p /data/keys

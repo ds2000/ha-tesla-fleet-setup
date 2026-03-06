@@ -97,9 +97,12 @@ async def api_generate_keys(request):
     result = {"public_key": public_pem, "ha_info": ha_info}
 
     # Auto-select URL method
-    if ha_info["has_nabu_casa"]:
+    if ha_info["has_nabu_casa"] and ha_info["external_url"]:
         state["public_key_url"] = ha_info["external_url"]
         state["url_method"] = "nabu_casa"
+    elif ha_info["has_nabu_casa"]:
+        # Cloud component loaded but couldn't auto-detect URL
+        state["url_method"] = "nabu_casa_manual"
     elif ha_info["has_external_url"]:
         state["public_key_url"] = ha_info["external_url"]
         state["url_method"] = "external_url"
@@ -110,6 +113,19 @@ async def api_generate_keys(request):
     result["url_method"] = state["url_method"]
     result["public_key_url"] = state["public_key_url"]
     return web.json_response(result)
+
+
+async def api_set_url(request):
+    """Manually set the public key URL."""
+    data = await request.json()
+    url = data.get("url", "").strip().rstrip("/")
+    if not url or not url.startswith("https://"):
+        return web.json_response({"error": "URL must start with https://"}, status=400)
+    state["public_key_url"] = url
+    state["url_method"] = "manual"
+    save_state()
+    logger.info("Public key URL set manually: %s", url)
+    return web.json_response({"url": url})
 
 
 async def api_start_tunnel(request):
@@ -300,6 +316,7 @@ def create_app() -> web.Application:
     app.router.add_get("/", wizard_page)
     app.router.add_get("/api/status", api_status)
     app.router.add_post("/api/generate-keys", api_generate_keys)
+    app.router.add_post("/api/set-url", api_set_url)
     app.router.add_post("/api/start-tunnel", api_start_tunnel)
     app.router.add_post("/api/verify-url", api_verify_url)
     app.router.add_post("/api/save-credentials", api_save_credentials)

@@ -476,6 +476,22 @@
         <div class="info-box success" id="url-detected-msg"></div>
       </div>
 
+      <!-- Nabu Casa detected but URL not auto-resolved -->
+      <div id="url-nabu-manual" style="display:none">
+        <div class="info-box info">
+          <strong>Nabu Casa detected!</strong> We found the cloud component but couldn't
+          auto-detect your remote URL. Please paste it below &mdash; you can find it in
+          <strong>Settings &rarr; Home Assistant Cloud</strong> (the <code>https://...ui.nabu.casa</code> link).
+        </div>
+        <div class="input-group" style="margin-top: 12px">
+          <label for="input-nabu-url">Your Nabu Casa URL</label>
+          <input type="url" id="input-nabu-url" placeholder="https://xxxxxxxx.ui.nabu.casa" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="setManualUrl()">Use This URL</button>
+        </div>
+      </div>
+
       <!-- No URL detected — need tunnel -->
       <div id="url-needs-tunnel" style="display:none">
         <div class="info-box warning">
@@ -834,6 +850,8 @@
             document.getElementById('url-detected-msg').innerHTML =
               '<strong>External URL detected</strong> from your Home Assistant configuration.';
             updateUrlDisplay();
+          } else if (data.url_method === 'nabu_casa_manual') {
+            document.getElementById('url-nabu-manual').style.display = 'block';
           } else {
             document.getElementById('url-needs-tunnel').style.display = 'block';
           }
@@ -846,7 +864,32 @@
       }
     }
 
-    // --- Step 2: Tunnel & URL ---
+    // --- Step 2: Manual URL & Tunnel ---
+    async function setManualUrl() {
+      const input = document.getElementById('input-nabu-url');
+      const url = input.value.trim().replace(/\/+$/, '');
+      if (!url || !url.startsWith('https://')) {
+        alert('Please enter a valid URL starting with https://');
+        input.focus();
+        return;
+      }
+      try {
+        const resp = await fetch('api/set-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        publicKeyUrl = data.url;
+        urlMethod = 'manual';
+        document.getElementById('url-nabu-manual').style.display = 'none';
+        updateUrlDisplay();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
     async function startTunnel() {
       const btn = document.getElementById('tunnel-btn');
       const text = document.getElementById('tunnel-btn-text');

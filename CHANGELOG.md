@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-03-06
+
+### Fixed
+
+- Nabu Casa detection: try multiple cloud API paths, handle case where cloud
+  component is loaded but URL cannot be auto-resolved
+- Manual URL input: when Nabu Casa is detected but URL unknown, user can paste
+  their `https://xxx.ui.nabu.casa` URL directly
+- Version display in wizard header
+
 ## [0.1.3] - 2026-03-06
 
 ### Fixed
