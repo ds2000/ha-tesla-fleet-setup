@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-06
+
+### Added
+
+- **Signed commands (security level 10)**: Bundle Tesla's `tesla-control` binary
+  for end-to-end encrypted vehicle commands
+- **Key pairing**: New wizard step to enroll your key on the vehicle via NFC card tap
+- Security level badge shows current level (7 = read-only, 10 = signed commands)
+- Commands (lock, flash, honk) now use signed protocol when key is paired
+- Fallback to unsigned REST API when key is not yet paired
+
+## [0.1.9] - 2026-03-06
+
+### Added
+
+- API Testing page: after setup, test popular Tesla Fleet APIs directly from the add-on
+- Vehicle list, state, charge, climate, location, lock, flash lights, honk horn
+- Vehicle selector dropdown with Wake Up button for asleep vehicles
+- Green/red status indicators show which APIs are working
+- Automatic token refresh when access token expires
+
 ## [0.1.5] - 2026-03-06
 
 ### Changed

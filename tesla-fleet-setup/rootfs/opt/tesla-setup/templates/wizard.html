@@ -398,6 +398,84 @@
     }
     .reset-link:hover { color: var(--text); }
 
+    /* API Testing */
+    .api-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+
+    .api-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: border-color 0.2s;
+    }
+
+    .api-card .api-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    .api-card .api-indicator.ok { background: var(--success); box-shadow: 0 0 6px rgba(46,204,113,0.4); }
+    .api-card .api-indicator.fail { background: var(--error); box-shadow: 0 0 6px rgba(231,76,60,0.4); }
+    .api-card .api-indicator.running { background: var(--warning); animation: pulse 1.5s infinite; }
+
+    .api-card .api-info { flex: 1; min-width: 0; }
+    .api-card .api-name { font-size: 0.9rem; font-weight: 600; }
+    .api-card .api-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+    .api-card .api-result { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; font-family: 'SF Mono', 'Menlo', monospace; }
+    .api-card .api-result.ok { color: var(--success); }
+    .api-card .api-result.fail { color: var(--error); }
+
+    .api-card .btn-test {
+      padding: 6px 16px;
+      font-size: 0.78rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-hover);
+      color: var(--text);
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .api-card .btn-test:hover { border-color: var(--text-muted); }
+    .api-card .btn-test:disabled { opacity: 0.4; cursor: not-allowed; }
+    .api-card .btn-test.danger { border-color: var(--error); color: var(--error); }
+    .api-card .btn-test.danger:hover { background: rgba(231,76,60,0.1); }
+
+    .vehicle-selector {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 8px;
+    }
+
+    .vehicle-selector label { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; }
+
+    .vehicle-selector select {
+      flex: 1;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.85rem;
+      font-family: inherit;
+      outline: none;
+    }
+    .vehicle-selector select:focus { border-color: var(--accent); }
+
     /* Responsive */
     @media (max-width: 600px) {
       body { padding: 16px; }
@@ -714,25 +792,176 @@
 
     <!-- ====== COMPLETE ====== -->
     <div class="step-card" id="step-complete">
-      <div class="complete-card">
+      <div class="complete-card" style="padding-bottom: 24px;">
         <div class="checkmark">&#10003;</div>
         <h2>Setup Complete!</h2>
         <p style="margin-top: 12px; color: var(--text-muted)">
           Your Tesla Fleet API integration is configured and ready to use.
         </p>
+      </div>
 
-        <div class="info-box info" style="margin-top: 24px; text-align: left;">
+      <!-- Key Pairing Section -->
+      <div style="text-align: left;" id="key-pairing-section">
+        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">Pair Your Key with Vehicle</h2>
+        <p class="subtitle">
+          Enroll your setup key on the vehicle to enable signed commands (lock, unlock, climate, etc.)
+          at full security level.
+        </p>
+
+        <div class="info-box info">
+          <strong>Why is this needed?</strong> Tesla requires commands to be cryptographically signed
+          with a key that the vehicle trusts. Without pairing, only read-only data access works.
+          After pairing, you get full control: lock, unlock, climate, charging, and more.
+        </div>
+
+        <div id="pair-needs-vehicles" style="display:none">
+          <div class="info-box warning">
+            First, click <strong>Test</strong> on "List Vehicles" below to load your vehicles, then come back here to pair.
+          </div>
+        </div>
+
+        <div id="pair-ready" style="display:none">
+          <div class="vehicle-selector">
+            <label for="pair-vehicle-select">Vehicle:</label>
+            <select id="pair-vehicle-select"></select>
+          </div>
+
+          <ol class="guide-steps" style="margin-bottom: 16px;">
+            <li>Make sure your vehicle is <strong>awake</strong> (use the Wake Up button below if needed)</li>
+            <li>Click <strong>"Send Pairing Request"</strong> below</li>
+            <li>Go to your vehicle and <strong>tap your NFC key card</strong> on the center console when prompted
+              <span class="tip">The card reader is between the two front cupholders. You have about 30 seconds to tap.</span>
+            </li>
+          </ol>
+
+          <div class="status-row" id="pair-status">
+            <div class="status-icon pending" id="pair-icon">&#128273;</div>
+            <span id="pair-text">Ready to send pairing request</span>
+          </div>
+
+          <div class="btn-row" style="margin-bottom: 20px;">
+            <button class="btn btn-primary" onclick="pairKey()" id="pair-btn">Send Pairing Request</button>
+          </div>
+        </div>
+
+        <div id="pair-done" class="info-box success" style="display:none">
+          Key pairing request sent! Commands will now use signed protocol (security level 10).
+        </div>
+
+        <hr class="divider">
+      </div>
+
+      <!-- API Testing Section -->
+      <div style="text-align: left;">
+        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">Test Your API Connection</h2>
+        <p class="subtitle">Verify that your credentials work by testing popular Tesla Fleet APIs.</p>
+
+        <div id="security-level-badge" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid var(--border);">
+          <span style="font-size:0.82rem;color:var(--text-muted);">Security Level:</span>
+          <span id="security-level-text" style="font-weight:600;font-size:0.85rem;">Loading...</span>
+        </div>
+
+        <div class="vehicle-selector" id="vehicle-selector" style="display:none">
+          <label for="vehicle-select">Vehicle:</label>
+          <select id="vehicle-select" onchange="onVehicleChange()"></select>
+          <button class="btn-test" onclick="wakeVehicle()" id="wake-btn" title="Wake up the vehicle">Wake Up</button>
+        </div>
+
+        <div class="api-grid">
+          <div class="api-card" id="api-vehicles">
+            <div class="api-indicator"></div>
+            <div class="api-info">
+              <div class="api-name">List Vehicles</div>
+              <div class="api-desc">Retrieve all vehicles on your Tesla account</div>
+              <div class="api-result" id="api-vehicles-result"></div>
+            </div>
+            <button class="btn-test" onclick="testListVehicles()">Test</button>
+          </div>
+
+          <div class="api-card" id="api-state">
+            <div class="api-indicator"></div>
+            <div class="api-info">
+              <div class="api-name">Vehicle State</div>
+              <div class="api-desc">Doors, windows, lock status, odometer, firmware version</div>
+              <div class="api-result" id="api-state-result"></div>
+            </div>
+            <button class="btn-test" onclick="testVehicleData('vehicle_state')" disabled>Test</button>
+          </div>
+
+          <div class="api-card" id="api-charge">
+            <div class="api-indicator"></div>
+            <div class="api-info">
+              <div class="api-name">Charge State</div>
+              <div class="api-desc">Battery level, charging status, range, charge rate</div>
+              <div class="api-result" id="api-charge-result"></div>
+            </div>
+            <button class="btn-test" onclick="testVehicleData('charge_state')" disabled>Test</button>
+          </div>
+
+          <div class="api-card" id="api-climate">
+            <div class="api-indicator"></div>
+            <div class="api-info">
+              <div class="api-name">Climate State</div>
+              <div class="api-desc">Interior/exterior temperature, HVAC status, seat heaters</div>
+              <div class="api-result" id="api-climate-result"></div>
+            </div>
+            <button class="btn-test" onclick="testVehicleData('climate_state')" disabled>Test</button>
+          </div>
+
+          <div class="api-card" id="api-location">
+            <div class="api-indicator"></div>
+            <div class="api-info">
+              <div class="api-name">Location</div>
+              <div class="api-desc">GPS coordinates, heading, speed</div>
+              <div class="api-result" id="api-location-result"></div>
+            </div>
+            <button class="btn-test" onclick="testVehicleData('drive_state')" disabled>Test</button>
+          </div>
+
+          <div class="api-card" id="api-lock">
+            <div class="api-indicator"></div>
+            <div class="api-info">
+              <div class="api-name">Lock <span id="lock-badge" class="api-desc" style="display:inline"></span></div>
+              <div class="api-desc">Test door lock command (locks the vehicle)</div>
+              <div class="api-result" id="api-lock-result"></div>
+            </div>
+            <button class="btn-test" onclick="testSignedCommand('lock', 'api-lock')" disabled>Test Lock</button>
+          </div>
+
+          <div class="api-card" id="api-flash">
+            <div class="api-indicator"></div>
+            <div class="api-info">
+              <div class="api-name">Flash Lights <span id="flash-badge" class="api-desc" style="display:inline"></span></div>
+              <div class="api-desc">Flash the vehicle headlights</div>
+              <div class="api-result" id="api-flash-result"></div>
+            </div>
+            <button class="btn-test" onclick="testSignedCommand('flash-lights', 'api-flash')" disabled>Test Flash</button>
+          </div>
+
+          <div class="api-card" id="api-honk">
+            <div class="api-indicator"></div>
+            <div class="api-info">
+              <div class="api-name">Honk Horn <span id="honk-badge" class="api-desc" style="display:inline"></span></div>
+              <div class="api-desc">Sound the vehicle horn</div>
+              <div class="api-result" id="api-honk-result"></div>
+            </div>
+            <button class="btn-test danger" onclick="testSignedCommand('honk', 'api-honk')" disabled>Test Honk</button>
+          </div>
+        </div>
+
+        <div class="info-box info" style="margin-top: 20px;">
           <strong>Next steps:</strong>
           <ol style="margin: 8px 0 0 20px; padding: 0;">
-            <li>Go to <strong>Settings &rarr; Devices &amp; Services &rarr; Add Integration</strong></li>
-            <li>Search for <strong>"Tesla Fleet"</strong></li>
-            <li>The integration will use the credentials from this setup</li>
+            <li>Go to <strong>Settings &rarr; Devices &amp; Services &rarr; Application Credentials</strong></li>
+            <li>Click <strong>Add Credentials</strong>, select <strong>Tesla Fleet</strong></li>
+            <li>Enter the same Client ID and Client Secret from Step 3</li>
+            <li>Then add the <strong>Tesla Fleet</strong> integration &mdash; it will use your personal credentials</li>
           </ol>
         </div>
 
-        <div class="info-box success" style="text-align: left;">
+        <div class="info-box success">
           Your credentials and tokens are stored securely on this device.
-          You can safely remove this add-on once the integration is working.
+          The tunnel has been shut down &mdash; only this local add-on can access your tokens.
         </div>
       </div>
     </div>
@@ -744,6 +973,8 @@
     let currentStep = 1;
     let publicKeyUrl = '';
     let urlMethod = '';
+    let hasTeslaControl = false;
+    let keyPaired = false;
 
     // --- Init ---
     async function init() {
@@ -755,6 +986,8 @@
       try {
         const resp = await fetch(`api/status`);
         const data = await resp.json();
+        hasTeslaControl = data.has_tesla_control || false;
+        keyPaired = data.key_paired || false;
         if (data.has_tokens) {
           showComplete();
         } else if (data.step) {
@@ -794,6 +1027,30 @@
       document.querySelectorAll('.step-card').forEach(el => el.classList.remove('visible'));
       document.getElementById('step-complete').classList.add('visible');
       document.querySelectorAll('.progress-step').forEach(el => el.classList.add('complete'));
+      updateSecurityLevel();
+    }
+
+    function updateSecurityLevel() {
+      const el = document.getElementById('security-level-text');
+      const section = document.getElementById('key-pairing-section');
+      if (hasTeslaControl && keyPaired) {
+        el.innerHTML = '<span style="color:var(--success)">10 — Signed Commands</span>';
+        section.querySelector('#pair-ready').style.display = 'none';
+        section.querySelector('#pair-needs-vehicles').style.display = 'none';
+        section.querySelector('#pair-done').style.display = 'block';
+      } else if (hasTeslaControl) {
+        el.innerHTML = '<span style="color:var(--warning)">7 — Read Only</span> <span style="font-weight:normal;font-size:0.78rem;color:var(--text-muted)">(pair key to reach 10)</span>';
+        if (vehicles.length > 0) {
+          section.querySelector('#pair-ready').style.display = 'block';
+          section.querySelector('#pair-needs-vehicles').style.display = 'none';
+        } else {
+          section.querySelector('#pair-needs-vehicles').style.display = 'block';
+          section.querySelector('#pair-ready').style.display = 'none';
+        }
+      } else {
+        el.innerHTML = '<span style="color:var(--text-muted)">7 — Read Only</span> <span style="font-weight:normal;font-size:0.78rem;color:var(--text-muted)">(tesla-control not available)</span>';
+        section.style.display = 'none';
+      }
     }
 
     // --- Step 1: Generate Keys ---
@@ -1013,6 +1270,250 @@
       if (!confirm('This will clear all saved credentials and start over. Are you sure?')) return;
       await fetch(`api/reset`, { method: 'POST' });
       location.reload();
+    }
+
+    // --- API Testing ---
+    let vehicles = [];
+    let selectedVehicleId = null;
+
+    function getSelectedVehicleId() {
+      const sel = document.getElementById('vehicle-select');
+      return sel ? sel.value : null;
+    }
+
+    function setApiStatus(cardId, status, resultText) {
+      const card = document.getElementById(cardId);
+      if (!card) return;
+      const indicator = card.querySelector('.api-indicator');
+      const result = card.querySelector('.api-result');
+      indicator.className = 'api-indicator ' + status;
+      if (resultText !== undefined) {
+        result.textContent = resultText;
+        result.className = 'api-result ' + status;
+      }
+    }
+
+    function enableVehicleTests(enabled) {
+      const cards = ['api-state', 'api-charge', 'api-climate', 'api-location', 'api-lock', 'api-flash', 'api-honk'];
+      cards.forEach(id => {
+        const btn = document.getElementById(id)?.querySelector('.btn-test');
+        if (btn) btn.disabled = !enabled;
+      });
+    }
+
+    async function testListVehicles() {
+      setApiStatus('api-vehicles', 'running', 'Loading...');
+      try {
+        const resp = await fetch('api/vehicles');
+        const data = await resp.json();
+        if (data.success && data.data) {
+          const list = data.data.response || [];
+          vehicles = list;
+          if (list.length === 0) {
+            setApiStatus('api-vehicles', 'fail', 'No vehicles found on this account');
+            return;
+          }
+          const names = list.map(v => v.display_name || v.vin || 'Unknown');
+          setApiStatus('api-vehicles', 'ok', `Found ${list.length} vehicle${list.length > 1 ? 's' : ''}: ${names.join(', ')}`);
+
+          // Populate vehicle selectors
+          const sel = document.getElementById('vehicle-select');
+          const pairSel = document.getElementById('pair-vehicle-select');
+          sel.innerHTML = '';
+          if (pairSel) pairSel.innerHTML = '';
+          list.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.id;
+            opt.textContent = `${v.display_name || 'Vehicle'} (${v.vin || '?'}) — ${v.state || '?'}`;
+            sel.appendChild(opt);
+            if (pairSel) {
+              const opt2 = opt.cloneNode(true);
+              opt2.dataset.vin = v.vin || '';
+              pairSel.appendChild(opt2);
+            }
+          });
+          document.getElementById('vehicle-selector').style.display = 'flex';
+          enableVehicleTests(true);
+          updateSecurityLevel();
+        } else {
+          setApiStatus('api-vehicles', 'fail', data.error || 'Failed to list vehicles');
+        }
+      } catch (e) {
+        setApiStatus('api-vehicles', 'fail', 'Network error: ' + e.message);
+      }
+    }
+
+    function onVehicleChange() {
+      // Reset all vehicle-specific results when switching vehicles
+      ['api-state', 'api-charge', 'api-climate', 'api-location', 'api-lock', 'api-flash', 'api-honk'].forEach(id => {
+        setApiStatus(id, '', '');
+      });
+    }
+
+    async function wakeVehicle() {
+      const vid = getSelectedVehicleId();
+      if (!vid) return;
+      const btn = document.getElementById('wake-btn');
+      btn.disabled = true;
+      btn.textContent = 'Waking...';
+      try {
+        const resp = await fetch(`api/vehicles/${vid}/wake`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+          btn.textContent = 'Awake!';
+          setTimeout(() => { btn.textContent = 'Wake Up'; btn.disabled = false; }, 3000);
+        } else {
+          btn.textContent = 'Failed';
+          setTimeout(() => { btn.textContent = 'Wake Up'; btn.disabled = false; }, 3000);
+        }
+      } catch (e) {
+        btn.textContent = 'Error';
+        setTimeout(() => { btn.textContent = 'Wake Up'; btn.disabled = false; }, 3000);
+      }
+    }
+
+    async function testVehicleData(section) {
+      const vid = getSelectedVehicleId();
+      if (!vid) return;
+
+      const cardMap = {
+        vehicle_state: 'api-state',
+        charge_state: 'api-charge',
+        climate_state: 'api-climate',
+        drive_state: 'api-location',
+      };
+      const cardId = cardMap[section];
+      setApiStatus(cardId, 'running', 'Loading...');
+
+      try {
+        const resp = await fetch(`api/vehicles/${vid}/data`);
+        const data = await resp.json();
+        if (data.success && data.data && data.data.response) {
+          const vd = data.data.response[section];
+          if (!vd) {
+            setApiStatus(cardId, 'fail', 'Vehicle may be asleep — try Wake Up first');
+            return;
+          }
+          let summary = '';
+          switch (section) {
+            case 'vehicle_state':
+              summary = `Locked: ${vd.locked ? 'Yes' : 'No'}, Odometer: ${Math.round(vd.odometer || 0).toLocaleString()} mi, FW: ${vd.car_version || '?'}`;
+              break;
+            case 'charge_state':
+              summary = `Battery: ${vd.battery_level ?? '?'}%, Range: ${Math.round(vd.battery_range || 0)} mi, Charging: ${vd.charging_state || '?'}`;
+              break;
+            case 'climate_state':
+              summary = `Inside: ${vd.inside_temp ?? '?'}°C, Outside: ${vd.outside_temp ?? '?'}°C, HVAC: ${vd.is_climate_on ? 'On' : 'Off'}`;
+              break;
+            case 'drive_state':
+              summary = `Lat: ${(vd.latitude || 0).toFixed(4)}, Lon: ${(vd.longitude || 0).toFixed(4)}, Speed: ${vd.speed ?? 'parked'}`;
+              break;
+          }
+          setApiStatus(cardId, 'ok', summary);
+        } else {
+          const err = data.error || 'Failed — vehicle may be asleep';
+          setApiStatus(cardId, 'fail', err);
+        }
+      } catch (e) {
+        setApiStatus(cardId, 'fail', 'Network error: ' + e.message);
+      }
+    }
+
+    async function testSignedCommand(command, cardId) {
+      const vid = getSelectedVehicleId();
+      if (!vid) return;
+
+      // Get the VIN from our vehicles list
+      const vehicle = vehicles.find(v => String(v.id) === String(vid));
+      const vin = vehicle?.vin;
+
+      setApiStatus(cardId, 'running', 'Sending...');
+
+      // Use signed command if tesla-control is available and key is paired
+      if (hasTeslaControl && keyPaired && vin) {
+        try {
+          const resp = await fetch('api/signed-command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vin, command }),
+          });
+          const data = await resp.json();
+          if (data.success) {
+            setApiStatus(cardId, 'ok', 'Signed command sent successfully');
+          } else {
+            setApiStatus(cardId, 'fail', data.error || 'Signed command failed');
+          }
+        } catch (e) {
+          setApiStatus(cardId, 'fail', 'Network error: ' + e.message);
+        }
+        return;
+      }
+
+      // Fallback to unsigned REST API command
+      const unsignedMap = { lock: 'door_lock', 'flash-lights': 'flash_lights', honk: 'honk_horn' };
+      const unsignedCmd = unsignedMap[command] || command;
+
+      try {
+        const resp = await fetch(`api/vehicles/${vid}/command/${unsignedCmd}`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+          const r = data.data?.response;
+          if (r && r.result === true) {
+            setApiStatus(cardId, 'ok', 'Command sent (unsigned)');
+          } else {
+            setApiStatus(cardId, 'fail', r?.reason || 'Command rejected — pair key for signed commands');
+          }
+        } else {
+          setApiStatus(cardId, 'fail', data.error || 'Command failed');
+        }
+      } catch (e) {
+        setApiStatus(cardId, 'fail', 'Network error: ' + e.message);
+      }
+    }
+
+    async function pairKey() {
+      const sel = document.getElementById('pair-vehicle-select');
+      const vin = sel?.options[sel.selectedIndex]?.dataset?.vin;
+      if (!vin) {
+        alert('Please load vehicles first by clicking Test on "List Vehicles"');
+        return;
+      }
+
+      const icon = document.getElementById('pair-icon');
+      const text = document.getElementById('pair-text');
+      const btn = document.getElementById('pair-btn');
+      icon.className = 'status-icon running';
+      icon.innerHTML = '<span class="spinner"></span>';
+      text.textContent = 'Sending pairing request to vehicle... Tap your NFC key card on the center console now.';
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch('api/pair-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vin }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+          icon.className = 'status-icon success';
+          icon.textContent = '\u2713';
+          text.textContent = 'Key paired successfully! Signed commands are now available.';
+          keyPaired = true;
+          document.getElementById('pair-done').style.display = 'block';
+          updateSecurityLevel();
+        } else {
+          icon.className = 'status-icon error';
+          icon.textContent = '!';
+          text.textContent = data.error || 'Pairing failed — make sure the vehicle is awake and try again';
+          btn.disabled = false;
+          btn.textContent = 'Retry Pairing';
+        }
+      } catch (e) {
+        icon.className = 'status-icon error';
+        icon.textContent = '!';
+        text.textContent = 'Network error: ' + e.message;
+        btn.disabled = false;
+      }
     }
 
     // Boot

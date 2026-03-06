@@ -103,3 +103,67 @@ async def exchange_code(client_id: str, client_secret: str, code: str, redirect_
             data = await resp.json()
             logger.info("Token exchange successful")
             return {"success": True, "data": data}
+
+
+async def refresh_tokens(client_id: str, client_secret: str, refresh_token: str) -> dict:
+    """Refresh an expired access token."""
+    token_url = f"{TESLA_AUTH_BASE}/oauth2/v3/token"
+    payload = {
+        "grant_type": "refresh_token",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": refresh_token,
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(token_url, json=payload) as resp:
+            if resp.status != 200:
+                body = await resp.text()
+                safe = _sanitize_error(body)
+                logger.error("Token refresh failed (HTTP %d)", resp.status)
+                return {"success": False, "error": safe}
+            data = await resp.json()
+            logger.info("Token refresh successful")
+            return {"success": True, "data": data}
+
+
+async def _api_request(access_token: str, method: str, path: str, json_body: dict | None = None) -> dict:
+    """Make an authenticated request to the Tesla Fleet API."""
+    url = f"{TESLA_API_BASE}{path}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    async with aiohttp.ClientSession() as session:
+        async with session.request(method, url, headers=headers, json=json_body,
+                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            try:
+                data = await resp.json()
+            except Exception:
+                data = {"raw": _sanitize_error(await resp.text())}
+            if resp.status == 200:
+                return {"success": True, "data": data}
+            safe = _sanitize_error(str(data))
+            logger.error("API request %s %s failed (HTTP %d)", method, path, resp.status)
+            return {"success": False, "status": resp.status, "error": safe}
+
+
+async def list_vehicles(access_token: str) -> dict:
+    """List all vehicles on the account."""
+    return await _api_request(access_token, "GET", "/api/1/vehicles")
+
+
+async def get_vehicle_data(access_token: str, vehicle_id: str) -> dict:
+    """Get comprehensive vehicle data."""
+    endpoints = "charge_state,climate_state,drive_state,location_data,vehicle_state,vehicle_config"
+    return await _api_request(access_token, "GET",
+                              f"/api/1/vehicles/{vehicle_id}/vehicle_data?endpoints={endpoints}")
+
+
+async def wake_vehicle(access_token: str, vehicle_id: str) -> dict:
+    """Wake up a vehicle."""
+    return await _api_request(access_token, "POST", f"/api/1/vehicles/{vehicle_id}/wake_up")
+
+
+async def send_command(access_token: str, vehicle_id: str, command: str, body: dict | None = None) -> dict:
+    """Send a command to a vehicle."""
+    return await _api_request(access_token, "POST",
+                              f"/api/1/vehicles/{vehicle_id}/command/{command}", body)
