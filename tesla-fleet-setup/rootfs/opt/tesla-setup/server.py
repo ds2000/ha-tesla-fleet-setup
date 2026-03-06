@@ -72,7 +72,7 @@ def save_state():
 async def well_known_appkeys(request):
     """Serve the public key at /.well-known/appkeys."""
     public_pem = keygen.get_public_key()
-    return web.Response(text=public_pem, content_type="application/x-pem-file")
+    return web.Response(text=public_pem, content_type="text/plain")
 
 
 # --- API routes ---

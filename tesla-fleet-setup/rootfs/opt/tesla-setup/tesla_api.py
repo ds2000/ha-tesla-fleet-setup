@@ -62,7 +62,7 @@ async def register_partner(client_id: str, client_secret: str, domain: str) -> d
             if resp.status != 200:
                 body = await resp.text() if resp.content_type != "application/json" else str(await resp.json())
                 safe = _sanitize_error(body)
-                logger.error("Partner registration failed (HTTP %d)", resp.status)
+                logger.error("Partner registration failed (HTTP %d): %s", resp.status, safe)
                 return {"success": False, "step": "register", "status": resp.status, "error": safe}
 
             body = await resp.json()
