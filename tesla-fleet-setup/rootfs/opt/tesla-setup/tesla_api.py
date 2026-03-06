@@ -160,10 +160,10 @@ async def get_vehicle_data(access_token: str, vehicle_id: str) -> dict:
 
 async def wake_vehicle(access_token: str, vehicle_id: str) -> dict:
     """Wake up a vehicle."""
-    return await _api_request(access_token, "POST", f"/api/1/vehicles/{vehicle_id}/wake_up")
+    return await _api_request(access_token, "POST", f"/api/1/vehicles/{vehicle_id}/wake_up", {})
 
 
 async def send_command(access_token: str, vehicle_id: str, command: str, body: dict | None = None) -> dict:
     """Send a command to a vehicle."""
     return await _api_request(access_token, "POST",
-                              f"/api/1/vehicles/{vehicle_id}/command/{command}", body)
+                              f"/api/1/vehicles/{vehicle_id}/command/{command}", body or {})
