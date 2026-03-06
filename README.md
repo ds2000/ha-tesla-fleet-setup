@@ -1,6 +1,5 @@
 # Tesla Fleet Setup for Home Assistant
 
-[![HACS Default](https://img.shields.io/badge/HACS-Default-blue.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/ds2000/ha-tesla-fleet-setup)](https://github.com/ds2000/ha-tesla-fleet-setup/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -40,23 +39,16 @@ that handles all the technical complexity for you.
 
 ## Installation
 
-### HACS (recommended)
-
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ds2000&repository=ha-tesla-fleet-setup&category=integration)
+[![Open your Home Assistant instance and add this add-on repository.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fds2000%2Fha-tesla-fleet-setup)
 
 Or manually:
-1. Open HACS in Home Assistant
-2. Click the three dots (menu) and select **Custom repositories**
-3. Add `https://github.com/ds2000/ha-tesla-fleet-setup` as category **Add-on**
-4. Find **Tesla Fleet Setup** and click **Install**
-
-### Manual
 
 1. In Home Assistant, go to **Settings -> Add-ons -> Add-on Store**
-2. Click the three dots -> **Repositories**
+2. Click the three dots (⋮) top-right -> **Repositories**
 3. Add: `https://github.com/ds2000/ha-tesla-fleet-setup`
-4. Find **Tesla Fleet Setup** in the store and click **Install**
-5. Click **Start**, then open the **Web UI**
+4. Click **Add**, then refresh the page
+5. Find **Tesla Fleet Setup** in the store and click **Install**
+6. Click **Start**, then open the **Web UI**
 
 ## How It Works
 
