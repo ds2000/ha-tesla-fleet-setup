@@ -242,8 +242,16 @@ async def api_reset(request):
 
 
 async def wizard_page(request):
-    """Serve the wizard HTML."""
+    """Serve the wizard HTML.
+
+    Injects a <base href> using the X-Ingress-Path header so that
+    relative URLs (api/status, static/...) resolve through the HA
+    ingress proxy instead of hitting HA Core directly.
+    """
     html = (TEMPLATES_DIR / "wizard.html").read_text()
+    ingress_path = request.headers.get("X-Ingress-Path", "")
+    base_url = f"{ingress_path}/" if ingress_path else "/"
+    html = html.replace("<head>", f'<head>\n  <base href="{base_url}">', 1)
     return web.Response(text=html, content_type="text/html")
 
 
