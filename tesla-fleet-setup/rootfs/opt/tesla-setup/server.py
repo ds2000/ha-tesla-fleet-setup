@@ -28,7 +28,6 @@ logger = logging.getLogger("tesla-setup")
 # Suppress aiohttp access logs (they would log OAuth callback URLs with auth codes)
 logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
 
-INGRESS_PATH = os.environ.get("INGRESS_PATH", "")
 PORT = int(os.environ.get("INGRESS_PORT", "8099"))
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -213,7 +212,7 @@ async def oauth_callback(request):
         state["oauth_state"] = None
         save_state()
         logger.info("OAuth complete — tokens saved")
-        raise web.HTTPFound(f"{INGRESS_PATH}/?setup=complete")
+        raise web.HTTPFound("/?setup=complete")
     else:
         # Never expose raw error detail to browser
         logger.error("Token exchange failed")
@@ -245,7 +244,6 @@ async def api_reset(request):
 async def wizard_page(request):
     """Serve the wizard HTML."""
     html = (TEMPLATES_DIR / "wizard.html").read_text()
-    html = html.replace("__INGRESS_PATH__", INGRESS_PATH)
     return web.Response(text=html, content_type="text/html")
 
 
@@ -272,20 +270,19 @@ def create_app() -> web.Application:
     # OAuth callback (also at root for redirect URI)
     app.router.add_get("/oauth/callback", oauth_callback)
 
-    # Ingress-aware routes (HA proxies through INGRESS_PATH)
-    prefix = INGRESS_PATH if INGRESS_PATH else ""
-    app.router.add_get(f"{prefix}/", wizard_page)
-    app.router.add_get(f"{prefix}/api/status", api_status)
-    app.router.add_post(f"{prefix}/api/generate-keys", api_generate_keys)
-    app.router.add_post(f"{prefix}/api/start-tunnel", api_start_tunnel)
-    app.router.add_post(f"{prefix}/api/verify-url", api_verify_url)
-    app.router.add_post(f"{prefix}/api/save-credentials", api_save_credentials)
-    app.router.add_post(f"{prefix}/api/register-partner", api_register_partner)
-    app.router.add_get(f"{prefix}/api/oauth-url", api_get_oauth_url)
-    app.router.add_post(f"{prefix}/api/reset", api_reset)
+    # All routes at root — HA ingress proxy strips the ingress prefix
+    app.router.add_get("/", wizard_page)
+    app.router.add_get("/api/status", api_status)
+    app.router.add_post("/api/generate-keys", api_generate_keys)
+    app.router.add_post("/api/start-tunnel", api_start_tunnel)
+    app.router.add_post("/api/verify-url", api_verify_url)
+    app.router.add_post("/api/save-credentials", api_save_credentials)
+    app.router.add_post("/api/register-partner", api_register_partner)
+    app.router.add_get("/api/oauth-url", api_get_oauth_url)
+    app.router.add_post("/api/reset", api_reset)
 
     # Static files
-    app.router.add_static(f"{prefix}/static", STATIC_DIR)
+    app.router.add_static("/static", STATIC_DIR)
 
     return app
 

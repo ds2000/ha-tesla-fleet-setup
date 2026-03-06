@@ -578,7 +578,7 @@
           </div>
           Then click <strong>Next</strong>.
           <div class="screenshot-placeholder">
-            <img src="__INGRESS_PATH__/static/screenshots/create-app.png" alt="Application Details form"
+            <img src="static/screenshots/create-app.png" alt="Application Details form"
                  onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
           </div>
         </li>
@@ -601,7 +601,7 @@
           <span class="tip">Leave "Allowed Returned URL(s)" empty &mdash; it's optional</span>
           Then click <strong>Next</strong>.
           <div class="screenshot-placeholder">
-            <img src="__INGRESS_PATH__/static/screenshots/api-app-client.png" alt="Client Details form"
+            <img src="static/screenshots/api-app-client.png" alt="Client Details form"
                  onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
           </div>
         </li>
@@ -615,7 +615,7 @@
           </span>
           Then click <strong>Next</strong>. Skip the Billing Details page (click <strong>Submit</strong>).
           <div class="screenshot-placeholder">
-            <img src="__INGRESS_PATH__/static/screenshots/create-api-access.png" alt="API Scopes selection"
+            <img src="static/screenshots/create-api-access.png" alt="API Scopes selection"
                  onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
           </div>
         </li>
@@ -628,7 +628,7 @@
             are the UUID (Client ID) and the masked dots (Client Secret &mdash; click the eye icon to reveal it).
           </span>
           <div class="screenshot-placeholder">
-            <img src="__INGRESS_PATH__/static/screenshots/client-credentials.png" alt="Client credentials page"
+            <img src="static/screenshots/client-credentials.png" alt="Client credentials page"
                  onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
           </div>
         </li>
@@ -745,7 +745,6 @@
   </div>
 
   <script>
-    const API = '__INGRESS_PATH__';
     let currentStep = 1;
     let publicKeyUrl = '';
     let urlMethod = '';
@@ -758,7 +757,7 @@
       }
 
       try {
-        const resp = await fetch(`${API}/api/status`);
+        const resp = await fetch(`api/status`);
         const data = await resp.json();
         if (data.has_tokens) {
           showComplete();
@@ -812,7 +811,7 @@
       btn.disabled = true;
 
       try {
-        const resp = await fetch(`${API}/api/generate-keys`, { method: 'POST' });
+        const resp = await fetch(`api/generate-keys`, { method: 'POST' });
         const data = await resp.json();
 
         icon.className = 'status-icon success';
@@ -854,7 +853,7 @@
       text.innerHTML = '<span class="spinner"></span> Creating tunnel (up to 30 seconds)...';
 
       try {
-        const resp = await fetch(`${API}/api/start-tunnel`, { method: 'POST' });
+        const resp = await fetch(`api/start-tunnel`, { method: 'POST' });
         const data = await resp.json();
         if (data.error) throw new Error(data.error);
 
@@ -884,7 +883,7 @@
       text.textContent = 'Testing...';
 
       try {
-        const resp = await fetch(`${API}/api/verify-url`, { method: 'POST' });
+        const resp = await fetch(`api/verify-url`, { method: 'POST' });
         const data = await resp.json();
         if (data.verified) {
           icon.className = 'status-icon success';
@@ -920,7 +919,7 @@
       }
 
       try {
-        const resp = await fetch(`${API}/api/save-credentials`, {
+        const resp = await fetch(`api/save-credentials`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
@@ -949,7 +948,7 @@
       troubleshoot.style.display = 'none';
 
       try {
-        const resp = await fetch(`${API}/api/register-partner`, { method: 'POST' });
+        const resp = await fetch(`api/register-partner`, { method: 'POST' });
         const data = await resp.json();
 
         if (data.success) {
@@ -988,7 +987,7 @@
     // --- Step 5: OAuth ---
     async function startOAuth() {
       try {
-        const resp = await fetch(`${API}/api/oauth-url`);
+        const resp = await fetch(`api/oauth-url`);
         const data = await resp.json();
         if (data.error) throw new Error(data.error);
         window.open(data.url, '_blank');
@@ -1013,7 +1012,7 @@
 
     async function resetWizard() {
       if (!confirm('This will clear all saved credentials and start over. Are you sure?')) return;
-      await fetch(`${API}/api/reset`, { method: 'POST' });
+      await fetch(`api/reset`, { method: 'POST' });
       location.reload();
     }
 
