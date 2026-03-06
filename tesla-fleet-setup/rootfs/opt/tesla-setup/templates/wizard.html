@@ -471,33 +471,12 @@
         We'll figure out the best way to do this for your setup.
       </p>
 
-      <!-- Auto-detected URL (Nabu Casa or external URL) -->
-      <div id="url-auto-detected" style="display:none">
-        <div class="info-box success" id="url-detected-msg"></div>
-      </div>
-
-      <!-- Nabu Casa detected but URL not auto-resolved -->
-      <div id="url-nabu-manual" style="display:none">
-        <div class="info-box info">
-          <strong>Nabu Casa detected!</strong> We found the cloud component but couldn't
-          auto-detect your remote URL. Please paste it below &mdash; you can find it in
-          <strong>Settings &rarr; Home Assistant Cloud</strong> (the <code>https://...ui.nabu.casa</code> link).
-        </div>
-        <div class="input-group" style="margin-top: 12px">
-          <label for="input-nabu-url">Your Nabu Casa URL</label>
-          <input type="url" id="input-nabu-url" placeholder="https://xxxxxxxx.ui.nabu.casa" autocomplete="off" spellcheck="false">
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" onclick="setManualUrl()">Use This URL</button>
-        </div>
-      </div>
-
-      <!-- No URL detected — need tunnel -->
+      <!-- Tunnel needed for all users -->
       <div id="url-needs-tunnel" style="display:none">
-        <div class="info-box warning">
-          <strong>No external URL found.</strong> Your Home Assistant isn't accessible from the internet yet.
-          No worries &mdash; we'll create a free temporary tunnel using Cloudflare. No account needed,
-          and it only stays active during this setup.
+        <div class="info-box info">
+          Tesla needs to verify your public key over the internet. We'll create a free
+          temporary tunnel using Cloudflare &mdash; no account needed. It only stays active
+          during this setup and shuts down when you're done.
         </div>
         <div class="btn-row">
           <button class="btn btn-primary" onclick="startTunnel()" id="tunnel-btn">
@@ -509,11 +488,11 @@
           <summary>What is a Cloudflare tunnel?</summary>
           <div class="details-content">
             <p>A Cloudflare tunnel creates a secure, temporary link from the internet
-               to this add-on. Tesla uses it once to verify your public key.</p>
+               to this add-on. Tesla uses it to verify your public key during setup.</p>
             <p>It <strong>does not</strong> expose your Home Assistant. Only the
-               public key endpoint is accessible, and the tunnel is shut down after setup.</p>
-            <p>If you have Nabu Casa or already use DuckDNS with a reverse proxy,
-               restart this add-on and it will detect your external URL automatically.</p>
+               public key endpoint is accessible, and the tunnel shuts down after setup.</p>
+            <p>Even if you have Nabu Casa, the tunnel is needed because Tesla must
+               reach this add-on directly to verify the key.</p>
           </div>
         </details>
       </div>
@@ -840,21 +819,9 @@
 
         setTimeout(() => {
           goToStep(2);
-          if (data.url_method === 'nabu_casa') {
-            document.getElementById('url-auto-detected').style.display = 'block';
-            document.getElementById('url-detected-msg').innerHTML =
-              '<strong>Nabu Casa detected!</strong> Your remote URL will be used automatically. No extra setup needed.';
-            updateUrlDisplay();
-          } else if (data.url_method === 'external_url') {
-            document.getElementById('url-auto-detected').style.display = 'block';
-            document.getElementById('url-detected-msg').innerHTML =
-              '<strong>External URL detected</strong> from your Home Assistant configuration.';
-            updateUrlDisplay();
-          } else if (data.url_method === 'nabu_casa_manual') {
-            document.getElementById('url-nabu-manual').style.display = 'block';
-          } else {
-            document.getElementById('url-needs-tunnel').style.display = 'block';
-          }
+          // Always show tunnel option — Nabu Casa/external URLs point to HA Core
+          // which doesn't serve /.well-known/appkeys. Only our add-on does.
+          document.getElementById('url-needs-tunnel').style.display = 'block';
         }, 600);
       } catch (e) {
         icon.className = 'status-icon error';
@@ -864,32 +831,7 @@
       }
     }
 
-    // --- Step 2: Manual URL & Tunnel ---
-    async function setManualUrl() {
-      const input = document.getElementById('input-nabu-url');
-      const url = input.value.trim().replace(/\/+$/, '');
-      if (!url || !url.startsWith('https://')) {
-        alert('Please enter a valid URL starting with https://');
-        input.focus();
-        return;
-      }
-      try {
-        const resp = await fetch('api/set-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url }),
-        });
-        const data = await resp.json();
-        if (data.error) throw new Error(data.error);
-        publicKeyUrl = data.url;
-        urlMethod = 'manual';
-        document.getElementById('url-nabu-manual').style.display = 'none';
-        updateUrlDisplay();
-      } catch (e) {
-        alert('Error: ' + e.message);
-      }
-    }
-
+    // --- Step 2: Tunnel ---
     async function startTunnel() {
       const btn = document.getElementById('tunnel-btn');
       const text = document.getElementById('tunnel-btn-text');

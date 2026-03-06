@@ -96,16 +96,10 @@ async def api_generate_keys(request):
 
     result = {"public_key": public_pem, "ha_info": ha_info}
 
-    # Auto-select URL method
-    if ha_info["has_nabu_casa"] and ha_info["external_url"]:
-        state["public_key_url"] = ha_info["external_url"]
-        state["url_method"] = "nabu_casa"
-    elif ha_info["has_nabu_casa"]:
-        # Cloud component loaded but couldn't auto-detect URL
-        state["url_method"] = "nabu_casa_manual"
-    elif ha_info["has_external_url"]:
-        state["public_key_url"] = ha_info["external_url"]
-        state["url_method"] = "external_url"
+    # Always use tunnel — Nabu Casa and external URLs point to HA Core,
+    # which doesn't serve /.well-known/appkeys. Only our add-on does,
+    # so we need a direct tunnel to port 8099.
+    # The tunnel is temporary and only needed during setup.
 
     state["step"] = max(state["step"], 2)
     save_state()
@@ -141,19 +135,29 @@ async def api_start_tunnel(request):
 
 
 async def api_verify_url(request):
-    """Self-test: fetch our own .well-known/appkeys via the public URL."""
+    """Self-test: verify .well-known/appkeys is being served.
+
+    For tunnel URLs, test localhost directly (container can't resolve its
+    own tunnel hostname). For external URLs, test via the public URL.
+    """
     url = state.get("public_key_url")
     if not url:
         return web.json_response({"error": "No public URL configured"}, status=400)
 
-    test_url = f"{url}/.well-known/appkeys"
+    # For tunnel URLs, test localhost — the tunnel proxies to us, but we
+    # can't resolve the trycloudflare.com hostname from inside the container.
+    if ".trycloudflare.com" in url:
+        test_url = f"http://localhost:{PORT}/.well-known/appkeys"
+    else:
+        test_url = f"{url}/.well-known/appkeys"
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(test_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 200:
                     body = await resp.text()
                     if "BEGIN PUBLIC KEY" in body:
-                        return web.json_response({"verified": True, "url": test_url})
+                        return web.json_response({"verified": True, "url": f"{url}/.well-known/appkeys"})
                 return web.json_response({"verified": False, "status": resp.status})
     except Exception as e:
         return web.json_response({"verified": False, "error": str(e)})

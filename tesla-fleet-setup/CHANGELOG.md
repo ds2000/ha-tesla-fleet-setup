@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-03-06
+
+### Changed
+
+- Always use Cloudflare tunnel for setup — Nabu Casa and external URLs point
+  to HA Core which doesn't serve `/.well-known/appkeys`. Only this add-on does,
+  so a direct tunnel is always needed during the setup process.
+- Simplified Step 2 UI — removed Nabu Casa/external URL auto-detection options
+  that couldn't actually work
+
+### Fixed
+
+- Self-test for tunnel URLs: test localhost instead of trying to resolve the
+  tunnel hostname from inside the container (DNS can't resolve own tunnel)
+
 ## [0.1.4] - 2026-03-06
 
 ### Fixed
