@@ -233,7 +233,26 @@ async def oauth_callback(request):
         state["oauth_state"] = None
         save_state()
         logger.info("OAuth complete — tokens saved")
-        raise web.HTTPFound("/?setup=complete")
+        # Return success page directly — don't redirect, because the
+        # tunnel guard would block /?setup=complete
+        return web.Response(
+            text=(
+                "<!DOCTYPE html><html><head>"
+                "<meta charset='UTF-8'>"
+                "<style>body{background:#0d0d0d;color:#e0e0e0;font-family:system-ui;"
+                "display:flex;align-items:center;justify-content:center;height:100vh;"
+                "text-align:center;margin:0}"
+                ".ok{background:#2ecc71;width:72px;height:72px;border-radius:50%;"
+                "display:flex;align-items:center;justify-content:center;font-size:2rem;"
+                "margin:0 auto 20px}</style></head><body><div>"
+                "<div class='ok'>&#10003;</div>"
+                "<h2>Tesla Connected!</h2>"
+                "<p style='color:#888;margin-top:12px'>You can close this tab and return "
+                "to the Tesla Fleet Setup add-on in Home Assistant.</p>"
+                "</div></body></html>"
+            ),
+            content_type="text/html",
+        )
     else:
         # Never expose raw error detail to browser
         logger.error("Token exchange failed")

@@ -985,7 +985,20 @@
     // --- Utilities ---
     function copyText(btn, elementId, directValue) {
       const text = directValue || document.getElementById(elementId).textContent;
-      navigator.clipboard.writeText(text).then(() => {
+      // navigator.clipboard requires HTTPS; use fallback for HA ingress (HTTP)
+      const doCopy = navigator.clipboard
+        ? navigator.clipboard.writeText(text)
+        : new Promise((resolve, reject) => {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy') ? resolve() : reject();
+            document.body.removeChild(ta);
+          });
+      doCopy.then(() => {
         const original = btn.textContent;
         btn.textContent = 'Copied!';
         btn.classList.add('copied');
