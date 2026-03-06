@@ -26,16 +26,17 @@ knowledge, domain configuration, and SSL certificate management.
 ## The Solution
 
 This add-on automates everything except the Tesla developer portal registration
-(which Tesla requires to be done manually). It provides:
+(which Tesla requires to be done manually). It provides a step-by-step wizard
+that handles all the technical complexity for you.
 
-- **Automatic key generation** -- no command line needed
-- **Automatic URL detection** -- uses Nabu Casa, your configured external URL, or
-  creates a free temporary Cloudflare tunnel
-- **Guided registration walkthrough** -- step-by-step instructions with copy-paste
-  fields for the Tesla developer portal
-- **One-click partner verification** -- calls Tesla's API and handles the
-  public key verification automatically
-- **OAuth flow** -- sign in with Tesla and authorize access
+<p align="center">
+  <img src="images/wizard-step1-keys.png" width="420" alt="Step 1: Generate Keys">
+  <img src="images/wizard-step2-expose.png" width="420" alt="Step 2: Expose Public Key">
+</p>
+<p align="center">
+  <img src="images/wizard-step3-register.png" width="420" alt="Step 3: Register with Tesla">
+  <img src="images/wizard-complete.png" width="420" alt="Setup Complete">
+</p>
 
 ## Installation
 
@@ -57,48 +58,22 @@ Or manually:
 4. Find **Tesla Fleet Setup** in the store and click **Install**
 5. Click **Start**, then open the **Web UI**
 
-## The Wizard
+## How It Works
 
-The add-on walks you through five steps. Everything except step 3 is fully
-automated.
+The wizard walks you through five steps:
 
-### Step 1: Generate Keys
+| Step | What happens | Your effort |
+|------|-------------|-------------|
+| 1. Keys | EC P-256 key pair is generated automatically | Click one button |
+| 2. Expose | Public key URL is detected or tunnel is created | Zero (auto) or one click |
+| 3. Register | Guided walkthrough for developer.tesla.com | ~2 min of copy-paste |
+| 4. Verify | Partner authentication with Tesla | Click one button |
+| 5. Connect | OAuth sign-in with your Tesla account | Sign in and approve |
 
-Keys are generated automatically with one click. No terminal needed.
+After setup is complete, you can add the **Tesla Fleet** integration in
+Home Assistant and remove this add-on.
 
-### Step 2: Expose Public Key
-
-The add-on detects the best way to make your public key reachable:
-- **Nabu Casa** -- detected automatically, zero effort
-- **External URL** -- uses your configured HA external URL
-- **Cloudflare Tunnel** -- creates a free temporary tunnel (no account needed)
-
-A built-in self-test confirms Tesla can reach your key before you proceed.
-
-### Step 3: Register on Tesla Developer Portal
-
-This is the one manual step (~2-3 minutes). The wizard provides copy-paste
-fields for every value you need:
-
-<p align="center">
-  <img src="screenshots/create-app.png" width="420" alt="Application Details">
-  <img src="screenshots/api-app-client.png" width="420" alt="Client Details">
-</p>
-<p align="center">
-  <img src="screenshots/create-api-access.png" width="420" alt="API Scopes">
-  <img src="screenshots/client-credentials.png" width="420" alt="Client Credentials">
-</p>
-
-### Step 4: Partner Verification
-
-One click -- the add-on calls Tesla's API and Tesla verifies your public key.
-
-### Step 5: Connect
-
-Sign in with your Tesla account. After approval, setup is complete and you
-can add the **Tesla Fleet** integration in Home Assistant.
-
-## URL Detection Priority
+### URL Detection Priority
 
 The add-on tries these methods in order:
 
@@ -134,23 +109,6 @@ python3 run_local.py --demo
 ```
 
 Then open http://localhost:8099/
-
-## Architecture
-
-```
-config.yaml              -- HA add-on metadata
-Dockerfile               -- Alpine + Python + cloudflared
-build.yaml               -- Base images per architecture
-run.sh                   -- Entrypoint
-rootfs/opt/tesla-setup/
-  server.py              -- aiohttp server: wizard UI + API + .well-known
-  keygen.py              -- EC P-256 key generation
-  tunnel.py              -- Cloudflare quick tunnel management
-  tesla_api.py           -- Tesla Fleet API (partner auth + OAuth)
-  ha_discovery.py        -- Detect Nabu Casa / external URL
-  templates/
-    wizard.html          -- Single-page wizard UI
-```
 
 ## Requirements
 

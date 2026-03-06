@@ -16,7 +16,7 @@ from pathlib import Path
 DEMO_MODE = "--demo" in sys.argv
 
 REPO_DIR = Path(__file__).parent
-SRC_DIR = REPO_DIR / "rootfs" / "opt" / "tesla-setup"
+SRC_DIR = REPO_DIR / "tesla-fleet-setup" / "rootfs" / "opt" / "tesla-setup"
 
 # Local data directory (instead of /data inside Docker)
 LOCAL_DATA = REPO_DIR / ".local_data"

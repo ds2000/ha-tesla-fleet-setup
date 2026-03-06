@@ -4,4 +4,4 @@ __pycache__/
 /data/
 .local_data/
 *.pem
-rootfs/opt/tesla-setup/static/screenshots/
+tesla-fleet-setup/rootfs/opt/tesla-setup/static/screenshots/
