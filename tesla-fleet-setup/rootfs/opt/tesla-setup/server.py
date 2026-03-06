@@ -70,7 +70,7 @@ def save_state():
 # --- .well-known endpoint (served on all paths for tunnel) ---
 
 async def well_known_appkeys(request):
-    """Serve the public key at /.well-known/appkeys."""
+    """Serve the public key at Tesla's expected .well-known path."""
     public_pem = keygen.get_public_key()
     return web.Response(text=public_pem, content_type="text/plain")
 
@@ -97,7 +97,7 @@ async def api_generate_keys(request):
     result = {"public_key": public_pem, "ha_info": ha_info}
 
     # Always use tunnel — Nabu Casa and external URLs point to HA Core,
-    # which doesn't serve /.well-known/appkeys. Only our add-on does,
+    # which doesn't serve /.well-known/appspecific/com.tesla.3p.public-key.pem. Only our add-on does,
     # so we need a direct tunnel to port 8099.
     # The tunnel is temporary and only needed during setup.
 
@@ -147,9 +147,9 @@ async def api_verify_url(request):
     # For tunnel URLs, test localhost — the tunnel proxies to us, but we
     # can't resolve the trycloudflare.com hostname from inside the container.
     if ".trycloudflare.com" in url:
-        test_url = f"http://localhost:{PORT}/.well-known/appkeys"
+        test_url = f"http://localhost:{PORT}/.well-known/appspecific/com.tesla.3p.public-key.pem"
     else:
-        test_url = f"{url}/.well-known/appkeys"
+        test_url = f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -157,7 +157,7 @@ async def api_verify_url(request):
                 if resp.status == 200:
                     body = await resp.text()
                     if "BEGIN PUBLIC KEY" in body:
-                        return web.json_response({"verified": True, "url": f"{url}/.well-known/appkeys"})
+                        return web.json_response({"verified": True, "url": f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"})
                 return web.json_response({"verified": False, "status": resp.status})
     except Exception as e:
         return web.json_response({"verified": False, "error": str(e)})
@@ -289,14 +289,17 @@ async def on_shutdown(app):
     await tunnel_manager.stop()
 
 
-TUNNEL_ALLOWED_PATHS = {"/.well-known/appkeys", "/oauth/callback"}
+TUNNEL_ALLOWED_PATHS = {
+    "/.well-known/appspecific/com.tesla.3p.public-key.pem",
+    "/oauth/callback",
+}
 
 
 @web.middleware
 async def tunnel_guard(request, handler):
     """Block non-allowed paths when accessed through the Cloudflare tunnel.
 
-    Only /.well-known/appkeys and /oauth/callback are exposed to the internet.
+    Only /.well-known/appspecific/com.tesla.3p.public-key.pem and /oauth/callback are exposed to the internet.
     All other paths (wizard UI, API endpoints) return 404 when accessed via tunnel.
     """
     host = request.headers.get("Host", "")
@@ -311,7 +314,8 @@ def create_app() -> web.Application:
     app.on_shutdown.append(on_shutdown)
 
     # .well-known must be at the root (for tunnel/direct access)
-    app.router.add_get("/.well-known/appkeys", well_known_appkeys)
+    # Tesla fetches: /.well-known/appspecific/com.tesla.3p.public-key.pem
+    app.router.add_get("/.well-known/appspecific/com.tesla.3p.public-key.pem", well_known_appkeys)
 
     # OAuth callback (also at root for redirect URI)
     app.router.add_get("/oauth/callback", oauth_callback)

@@ -1,6 +1,6 @@
 name: "Tesla Fleet Setup"
 description: "Guided setup wizard for Tesla Fleet API integration with Home Assistant"
-version: "0.1.6"
+version: "0.1.7"
 slug: tesla-fleet-setup
 url: "https://github.com/ds2000/ha-tesla-fleet-setup"
 arch:
