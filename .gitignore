@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+/data/
+.local_data/
+*.pem
+rootfs/opt/tesla-setup/static/screenshots/

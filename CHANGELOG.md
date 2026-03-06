@@ -1,0 +1,32 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2026-03-06
+
+### Added
+
+- Initial release
+- 5-step guided wizard: key generation, URL exposure, Tesla app registration,
+  partner verification, and OAuth connection
+- Automatic EC P-256 key pair generation with secure storage (mode 0600)
+- Automatic Nabu Casa and external URL detection via HA Supervisor API
+- Cloudflare quick tunnel for users without external URL access
+- Self-test to verify public key reachability before proceeding
+- Tesla partner authentication (client credentials + partner registration)
+- OAuth authorization flow with CSRF protection (random state parameter)
+- Step-by-step Tesla developer portal walkthrough with copy-paste fields
+- Progress persistence across add-on restarts (state saved to /data)
+- Collapsible troubleshooting sections for common issues
+- Tesla dark theme UI consistent with the Tesla card aesthetic
+
+### Security
+
+- Credential sanitization in all log output (tokens, secrets, codes redacted)
+- HTTP access logs disabled (prevents OAuth codes in log files)
+- State file written with 0600 permissions
+- OAuth state cleared after use to prevent replay
+- Error responses to browser sanitized (no raw API bodies exposed)

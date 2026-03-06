@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tesla Fleet Setup</title>
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --surface: #1a1a1a;
+      --surface-hover: #222;
+      --border: #333;
+      --text: #e0e0e0;
+      --text-muted: #888;
+      --accent: #e82127;
+      --accent-hover: #ff2d33;
+      --success: #2ecc71;
+      --warning: #f39c12;
+      --error: #e74c3c;
+      --blue: #3498db;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Gotham', 'Century Gothic', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .container { max-width: 700px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 40px; }
+    header h1 { font-size: 1.8rem; font-weight: 600; margin-bottom: 8px; }
+    header p { color: var(--text-muted); font-size: 0.95rem; }
+
+    /* Progress bar */
+    .progress {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .progress::before {
+      content: '';
+      position: absolute;
+      top: 16px;
+      left: 40px;
+      right: 40px;
+      height: 2px;
+      background: var(--border);
+    }
+
+    .progress-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+      flex: 1;
+    }
+
+    .progress-step .dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      transition: all 0.3s;
+    }
+
+    .progress-step.active .dot {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    .progress-step.complete .dot {
+      border-color: var(--success);
+      background: var(--success);
+      color: white;
+    }
+
+    .progress-step .label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .progress-step.active .label { color: var(--text); }
+
+    /* Step cards */
+    .step-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .step-card.visible { display: block; }
+    .step-card h2 { font-size: 1.25rem; margin-bottom: 6px; }
+    .step-card .subtitle { color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem; }
+
+    /* Status indicators */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .status-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .status-icon.pending { background: var(--border); }
+    .status-icon.running { background: var(--warning); animation: pulse 1.5s infinite; }
+    .status-icon.success { background: var(--success); }
+    .status-icon.error { background: var(--error); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: var(--surface-hover);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-small { padding: 6px 14px; font-size: 0.8rem; }
+    .btn-row { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+
+    /* Copy field */
+    .copy-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+    }
+
+    .copy-field .field-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 110px;
+    }
+
+    .copy-field .field-value {
+      flex: 1;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      font-size: 0.82rem;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .copy-field .btn-copy {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .copy-field .btn-copy:hover { color: var(--text); border-color: var(--text-muted); }
+    .copy-field .btn-copy.copied { border-color: var(--success); color: var(--success); }
+
+    /* Input fields */
+    .input-group { margin-bottom: 16px; }
+
+    .input-group label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      outline: none;
+    }
+
+    .input-group input:focus { border-color: var(--accent); }
+
+    /* Info boxes */
+    .info-box {
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    .info-box.info { background: rgba(52, 152, 219, 0.1); border: 1px solid rgba(52, 152, 219, 0.3); }
+    .info-box.success { background: rgba(46, 204, 113, 0.1); border: 1px solid rgba(46, 204, 113, 0.3); }
+    .info-box.warning { background: rgba(243, 156, 18, 0.1); border: 1px solid rgba(243, 156, 18, 0.3); }
+    .info-box.error { background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); }
+
+    /* Guide steps */
+    .guide-steps {
+      counter-reset: guide;
+      list-style: none;
+      padding: 0;
+      margin: 16px 0;
+    }
+
+    .guide-steps li {
+      counter-increment: guide;
+      padding: 14px 0 14px 48px;
+      position: relative;
+      font-size: 0.9rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      line-height: 1.6;
+    }
+
+    .guide-steps li:last-child { border-bottom: none; }
+
+    .guide-steps li::before {
+      content: counter(guide);
+      position: absolute;
+      left: 0;
+      top: 14px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .guide-steps a { color: var(--blue); text-decoration: none; }
+    .guide-steps a:hover { text-decoration: underline; }
+
+    .guide-steps .tip {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Screenshot placeholder */
+    .screenshot-placeholder {
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      margin: 12px 0;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .screenshot-placeholder img {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .screenshot-placeholder .caption {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Divider */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 20px 0;
+    }
+
+    /* Collapsible troubleshooting */
+    details {
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    summary {
+      padding: 12px 16px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.02);
+    }
+
+    summary:hover { color: var(--text); }
+
+    details .details-content {
+      padding: 16px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    details .details-content p { margin-bottom: 8px; }
+    details .details-content strong { color: var(--text); }
+
+    /* Complete card */
+    .complete-card { text-align: center; padding: 48px 28px; }
+
+    .complete-card .checkmark {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--success);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 20px;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .reset-link {
+      display: block;
+      text-align: center;
+      margin-top: 32px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .reset-link:hover { color: var(--text); }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      body { padding: 16px; }
+      .step-card { padding: 20px; }
+      .copy-field { flex-wrap: wrap; }
+      .copy-field .field-label { min-width: auto; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Tesla Fleet API Setup</h1>
+      <p>Connect your Tesla to Home Assistant in about 10 minutes</p>
+    </header>
+
+    <!-- Progress Bar -->
+    <div class="progress">
+      <div class="progress-step active" data-step="1">
+        <div class="dot">1</div>
+        <div class="label">Keys</div>
+      </div>
+      <div class="progress-step" data-step="2">
+        <div class="dot">2</div>
+        <div class="label">Expose</div>
+      </div>
+      <div class="progress-step" data-step="3">
+        <div class="dot">3</div>
+        <div class="label">Register</div>
+      </div>
+      <div class="progress-step" data-step="4">
+        <div class="dot">4</div>
+        <div class="label">Verify</div>
+      </div>
+      <div class="progress-step" data-step="5">
+        <div class="dot">5</div>
+        <div class="label">Connect</div>
+      </div>
+    </div>
+
+    <!-- ====== STEP 1: Generate Keys ====== -->
+    <div class="step-card visible" id="step-1">
+      <h2>Generate Security Keys</h2>
+      <p class="subtitle">
+        Tesla requires a cryptographic key pair to verify your Home Assistant instance.
+        This is generated automatically &mdash; just click the button below.
+      </p>
+
+      <div class="info-box info">
+        <strong>What does this do?</strong> It creates a unique pair of security keys.
+        The "public" key will be shared with Tesla so they know it's really your
+        Home Assistant talking to them. The "private" key stays safely on your device.
+      </div>
+
+      <div class="status-row" id="key-status">
+        <div class="status-icon pending" id="key-icon">1</div>
+        <span>Key pair not yet generated</span>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="generateKeys()" id="key-btn">Generate Keys</button>
+      </div>
+    </div>
+
+    <!-- ====== STEP 2: Expose Public Key ====== -->
+    <div class="step-card" id="step-2">
+      <h2>Make Your Public Key Reachable</h2>
+      <p class="subtitle">
+        Tesla's servers need to download your public key over the internet.
+        We'll figure out the best way to do this for your setup.
+      </p>
+
+      <!-- Auto-detected URL (Nabu Casa or external URL) -->
+      <div id="url-auto-detected" style="display:none">
+        <div class="info-box success" id="url-detected-msg"></div>
+      </div>
+
+      <!-- No URL detected — need tunnel -->
+      <div id="url-needs-tunnel" style="display:none">
+        <div class="info-box warning">
+          <strong>No external URL found.</strong> Your Home Assistant isn't accessible from the internet yet.
+          No worries &mdash; we'll create a free temporary tunnel using Cloudflare. No account needed,
+          and it only stays active during this setup.
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="startTunnel()" id="tunnel-btn">
+            <span id="tunnel-btn-text">Create Temporary Tunnel</span>
+          </button>
+        </div>
+
+        <details>
+          <summary>What is a Cloudflare tunnel?</summary>
+          <div class="details-content">
+            <p>A Cloudflare tunnel creates a secure, temporary link from the internet
+               to this add-on. Tesla uses it once to verify your public key.</p>
+            <p>It <strong>does not</strong> expose your Home Assistant. Only the
+               public key endpoint is accessible, and the tunnel is shut down after setup.</p>
+            <p>If you have Nabu Casa or already use DuckDNS with a reverse proxy,
+               restart this add-on and it will detect your external URL automatically.</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- URL is ready -->
+      <div id="url-ready" style="display:none">
+        <div class="copy-field">
+          <span class="field-label">Your URL</span>
+          <span class="field-value" id="public-url-value"></span>
+          <button class="btn-copy" onclick="copyText(this, 'public-url-value')">Copy</button>
+        </div>
+
+        <div class="status-row" id="verify-status">
+          <div class="status-icon pending" id="verify-icon">?</div>
+          <span id="verify-text">Click "Test Reachability" to check Tesla can reach your key</span>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-small" onclick="verifyUrl()">Test Reachability</button>
+          <button class="btn btn-primary" onclick="goToStep(3)" id="step2-next" disabled>Continue</button>
+        </div>
+
+        <details>
+          <summary>Troubleshooting: test fails?</summary>
+          <div class="details-content">
+            <p><strong>Using Nabu Casa?</strong> Make sure Remote Access is enabled in
+               Settings &rarr; Home Assistant Cloud.</p>
+            <p><strong>Using a reverse proxy (nginx/Caddy)?</strong> The path
+               <code>/.well-known/appkeys</code> must be proxied through to Home Assistant.</p>
+            <p><strong>Using the tunnel?</strong> It may take 10-15 seconds to become reachable.
+               Try clicking "Test Reachability" again.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- ====== STEP 3: Register Tesla App ====== -->
+    <div class="step-card" id="step-3">
+      <h2>Register Your App with Tesla</h2>
+      <p class="subtitle">
+        This is the one step that needs to be done on Tesla's website.
+        Follow these instructions carefully &mdash; we've pre-filled everything for you.
+      </p>
+
+      <div class="info-box info">
+        <strong>Time needed:</strong> About 2-3 minutes. You'll need to sign in with the same
+        Tesla account that's linked to your car.
+      </div>
+
+      <ol class="guide-steps">
+        <li>
+          Open <a href="https://developer.tesla.com" target="_blank" rel="noopener">developer.tesla.com</a>
+          in a new tab and sign in with your <strong>Tesla account</strong>
+          <span class="tip">This is the same email/password you use for the Tesla app on your phone</span>
+        </li>
+        <li>
+          If this is your first time, you may need to accept the Developer Terms.
+          Just check the box and click <strong>Submit</strong>.
+        </li>
+        <li>
+          Click <strong>"Create App"</strong> to start the Tesla registration wizard.
+          You'll see a 4-step form. Fill in the <strong>Application Details</strong> page:
+          <div style="margin-top: 12px">
+            <div class="copy-field">
+              <span class="field-label">Application Name</span>
+              <span class="field-value">Home Assistant</span>
+              <button class="btn-copy" onclick="copyText(this, null, 'Home Assistant')">Copy</button>
+            </div>
+            <div class="copy-field">
+              <span class="field-label">Description</span>
+              <span class="field-value">Home Assistant Tesla Fleet Integration</span>
+              <button class="btn-copy" onclick="copyText(this, null, 'Home Assistant Tesla Fleet Integration')">Copy</button>
+            </div>
+            <div class="copy-field">
+              <span class="field-label">Purpose of Usage</span>
+              <span class="field-value">Personal home automation with Home Assistant</span>
+              <button class="btn-copy" onclick="copyText(this, null, 'Personal home automation with Home Assistant')">Copy</button>
+            </div>
+          </div>
+          Then click <strong>Next</strong>.
+          <div class="screenshot-placeholder">
+            <img src="__INGRESS_PATH__/static/screenshots/create-app.png" alt="Application Details form"
+                 onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
+          </div>
+        </li>
+        <li>
+          On the <strong>Client Details</strong> page, select
+          <strong>"Authorization Code and Machine-to-Machine"</strong> (the left option),
+          then paste your URLs:
+          <div style="margin-top: 12px">
+            <div class="copy-field">
+              <span class="field-label">Allowed Origin URL</span>
+              <span class="field-value" id="origin-value"></span>
+              <button class="btn-copy" onclick="copyText(this, 'origin-value')">Copy</button>
+            </div>
+            <div class="copy-field">
+              <span class="field-label">Allowed Redirect URI</span>
+              <span class="field-value" id="redirect-value"></span>
+              <button class="btn-copy" onclick="copyText(this, 'redirect-value')">Copy</button>
+            </div>
+          </div>
+          <span class="tip">Leave "Allowed Returned URL(s)" empty &mdash; it's optional</span>
+          Then click <strong>Next</strong>.
+          <div class="screenshot-placeholder">
+            <img src="__INGRESS_PATH__/static/screenshots/api-app-client.png" alt="Client Details form"
+                 onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
+          </div>
+        </li>
+        <li>
+          On the <strong>API &amp; Scopes</strong> page, tick the permissions you need:
+          <span class="tip">
+            Recommended: <strong>Profile Information</strong>, <strong>Vehicle Information</strong>,
+            <strong>Vehicle Location</strong>, <strong>Vehicle Commands</strong>, and
+            <strong>Vehicle Charging Management</strong>.<br>
+            If you have a Powerwall, also tick Energy Product Information and Energy Product Commands.
+          </span>
+          Then click <strong>Next</strong>. Skip the Billing Details page (click <strong>Submit</strong>).
+          <div class="screenshot-placeholder">
+            <img src="__INGRESS_PATH__/static/screenshots/create-api-access.png" alt="API Scopes selection"
+                 onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
+          </div>
+        </li>
+        <li>
+          After submitting, Tesla shows your <strong>Client ID</strong> and
+          <strong>Client Secret</strong>. Copy both into the fields below.
+          <span class="tip">
+            The Client Secret is only shown once! Save it somewhere safe if you want a backup.<br>
+            Note: Tesla may show this page in your browser's language. The two fields you need
+            are the UUID (Client ID) and the masked dots (Client Secret &mdash; click the eye icon to reveal it).
+          </span>
+          <div class="screenshot-placeholder">
+            <img src="__INGRESS_PATH__/static/screenshots/client-credentials.png" alt="Client credentials page"
+                 onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
+          </div>
+        </li>
+      </ol>
+
+      <hr class="divider">
+
+      <div style="margin-top: 20px">
+        <div class="input-group">
+          <label for="input-client-id">Client ID</label>
+          <input type="text" id="input-client-id" placeholder="Paste your Client ID here" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="input-group">
+          <label for="input-client-secret">Client Secret</label>
+          <input type="password" id="input-client-secret" placeholder="Paste your Client Secret here" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goToStep(2)">Back</button>
+        <button class="btn btn-primary" onclick="saveCredentials()">Save &amp; Continue</button>
+      </div>
+    </div>
+
+    <!-- ====== STEP 4: Partner Authentication ====== -->
+    <div class="step-card" id="step-4">
+      <h2>Verify with Tesla</h2>
+      <p class="subtitle">
+        This step tells Tesla about your app and lets them verify your public key.
+        It happens automatically &mdash; just click the button.
+      </p>
+
+      <div class="info-box info">
+        <strong>What happens:</strong> We send your app credentials to Tesla. Tesla then
+        connects to your public key URL to verify everything matches. This usually takes
+        a few seconds.
+      </div>
+
+      <div class="status-row" id="partner-status">
+        <div class="status-icon pending" id="partner-icon">4</div>
+        <span id="partner-text">Ready to verify</span>
+      </div>
+
+      <div id="partner-error" class="info-box error" style="display:none"></div>
+
+      <details id="partner-troubleshoot" style="display:none">
+        <summary>Troubleshooting: verification failed?</summary>
+        <div class="details-content">
+          <p><strong>"Public key not found"</strong> &mdash; Tesla couldn't reach your
+             <code>/.well-known/appkeys</code> URL. Go back to Step 2 and re-test reachability.</p>
+          <p><strong>"Invalid client"</strong> &mdash; Double-check your Client ID and Client Secret.
+             Go back to Step 3 to re-enter them.</p>
+          <p><strong>Timeout or network error</strong> &mdash; Tesla's API may be temporarily slow.
+             Wait a minute and try again.</p>
+        </div>
+      </details>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goToStep(3)">Back</button>
+        <button class="btn btn-primary" onclick="registerPartner()" id="partner-btn">Verify with Tesla</button>
+      </div>
+    </div>
+
+    <!-- ====== STEP 5: OAuth & Connect ====== -->
+    <div class="step-card" id="step-5">
+      <h2>Connect Your Tesla Account</h2>
+      <p class="subtitle">
+        Last step! Sign in with your Tesla account and give Home Assistant permission
+        to access your vehicle data.
+      </p>
+
+      <div class="info-box info">
+        <strong>What happens:</strong> A new window will open with Tesla's sign-in page.
+        After you log in and approve access, you'll be redirected back here automatically.
+      </div>
+
+      <div class="info-box warning" id="tunnel-warning" style="display:none">
+        <strong>Important:</strong> If you're using the temporary tunnel, do not close this
+        browser tab or stop the add-on until the sign-in is complete.
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goToStep(4)">Back</button>
+        <button class="btn btn-primary" onclick="startOAuth()">Sign in with Tesla</button>
+      </div>
+    </div>
+
+    <!-- ====== COMPLETE ====== -->
+    <div class="step-card" id="step-complete">
+      <div class="complete-card">
+        <div class="checkmark">&#10003;</div>
+        <h2>Setup Complete!</h2>
+        <p style="margin-top: 12px; color: var(--text-muted)">
+          Your Tesla Fleet API integration is configured and ready to use.
+        </p>
+
+        <div class="info-box info" style="margin-top: 24px; text-align: left;">
+          <strong>Next steps:</strong>
+          <ol style="margin: 8px 0 0 20px; padding: 0;">
+            <li>Go to <strong>Settings &rarr; Devices &amp; Services &rarr; Add Integration</strong></li>
+            <li>Search for <strong>"Tesla Fleet"</strong></li>
+            <li>The integration will use the credentials from this setup</li>
+          </ol>
+        </div>
+
+        <div class="info-box success" style="text-align: left;">
+          Your credentials and tokens are stored securely on this device.
+          You can safely remove this add-on once the integration is working.
+        </div>
+      </div>
+    </div>
+
+    <a class="reset-link" onclick="resetWizard()">Start over</a>
+  </div>
+
+  <script>
+    const API = '__INGRESS_PATH__';
+    let currentStep = 1;
+    let publicKeyUrl = '';
+    let urlMethod = '';
+
+    // --- Init ---
+    async function init() {
+      if (new URLSearchParams(location.search).get('setup') === 'complete') {
+        showComplete();
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${API}/api/status`);
+        const data = await resp.json();
+        if (data.has_tokens) {
+          showComplete();
+        } else if (data.step) {
+          publicKeyUrl = data.public_key_url || '';
+          urlMethod = data.url_method || '';
+          if (data.step >= 2 && publicKeyUrl) {
+            updateUrlDisplay();
+          }
+          goToStep(data.step);
+        }
+      } catch (e) {
+        console.error('Failed to load status:', e);
+      }
+    }
+
+    // --- Navigation ---
+    function goToStep(step) {
+      currentStep = step;
+      document.querySelectorAll('.step-card').forEach(el => el.classList.remove('visible'));
+      const card = document.getElementById(`step-${step}`);
+      if (card) card.classList.add('visible');
+
+      document.querySelectorAll('.progress-step').forEach(el => {
+        const s = parseInt(el.dataset.step);
+        el.classList.remove('active', 'complete');
+        if (s === step) el.classList.add('active');
+        else if (s < step) el.classList.add('complete');
+      });
+
+      // Show tunnel warning on step 5 if using tunnel
+      if (step === 5 && urlMethod === 'tunnel') {
+        document.getElementById('tunnel-warning').style.display = 'block';
+      }
+    }
+
+    function showComplete() {
+      document.querySelectorAll('.step-card').forEach(el => el.classList.remove('visible'));
+      document.getElementById('step-complete').classList.add('visible');
+      document.querySelectorAll('.progress-step').forEach(el => el.classList.add('complete'));
+    }
+
+    // --- Step 1: Generate Keys ---
+    async function generateKeys() {
+      const icon = document.getElementById('key-icon');
+      const status = document.getElementById('key-status');
+      const btn = document.getElementById('key-btn');
+      icon.className = 'status-icon running';
+      icon.innerHTML = '<span class="spinner"></span>';
+      status.querySelector('span:last-child').textContent = 'Generating keys and checking your setup...';
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch(`${API}/api/generate-keys`, { method: 'POST' });
+        const data = await resp.json();
+
+        icon.className = 'status-icon success';
+        icon.textContent = '\u2713';
+        status.querySelector('span:last-child').textContent = 'Keys generated successfully';
+
+        publicKeyUrl = data.public_key_url || '';
+        urlMethod = data.url_method || '';
+
+        setTimeout(() => {
+          goToStep(2);
+          if (data.url_method === 'nabu_casa') {
+            document.getElementById('url-auto-detected').style.display = 'block';
+            document.getElementById('url-detected-msg').innerHTML =
+              '<strong>Nabu Casa detected!</strong> Your remote URL will be used automatically. No extra setup needed.';
+            updateUrlDisplay();
+          } else if (data.url_method === 'external_url') {
+            document.getElementById('url-auto-detected').style.display = 'block';
+            document.getElementById('url-detected-msg').innerHTML =
+              '<strong>External URL detected</strong> from your Home Assistant configuration.';
+            updateUrlDisplay();
+          } else {
+            document.getElementById('url-needs-tunnel').style.display = 'block';
+          }
+        }, 600);
+      } catch (e) {
+        icon.className = 'status-icon error';
+        icon.textContent = '!';
+        status.querySelector('span:last-child').textContent = 'Error generating keys. Check the add-on logs.';
+        btn.disabled = false;
+      }
+    }
+
+    // --- Step 2: Tunnel & URL ---
+    async function startTunnel() {
+      const btn = document.getElementById('tunnel-btn');
+      const text = document.getElementById('tunnel-btn-text');
+      btn.disabled = true;
+      text.innerHTML = '<span class="spinner"></span> Creating tunnel (up to 30 seconds)...';
+
+      try {
+        const resp = await fetch(`${API}/api/start-tunnel`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+
+        publicKeyUrl = data.url;
+        urlMethod = 'tunnel';
+        document.getElementById('url-needs-tunnel').style.display = 'none';
+        updateUrlDisplay();
+      } catch (e) {
+        text.textContent = 'Retry';
+        btn.disabled = false;
+        alert('Failed to create tunnel: ' + e.message + '\n\nMake sure the add-on has internet access.');
+      }
+    }
+
+    function updateUrlDisplay() {
+      document.getElementById('url-ready').style.display = 'block';
+      document.getElementById('public-url-value').textContent = publicKeyUrl;
+      document.getElementById('origin-value').textContent = publicKeyUrl;
+      document.getElementById('redirect-value').textContent = publicKeyUrl + '/oauth/callback';
+    }
+
+    async function verifyUrl() {
+      const icon = document.getElementById('verify-icon');
+      const text = document.getElementById('verify-text');
+      icon.className = 'status-icon running';
+      icon.innerHTML = '<span class="spinner"></span>';
+      text.textContent = 'Testing...';
+
+      try {
+        const resp = await fetch(`${API}/api/verify-url`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.verified) {
+          icon.className = 'status-icon success';
+          icon.textContent = '\u2713';
+          text.textContent = 'Your public key is reachable from the internet';
+          document.getElementById('step2-next').disabled = false;
+        } else {
+          icon.className = 'status-icon error';
+          icon.textContent = '!';
+          text.textContent = 'Not reachable: ' + (data.error || 'HTTP ' + data.status);
+        }
+      } catch (e) {
+        icon.className = 'status-icon error';
+        icon.textContent = '!';
+        text.textContent = 'Test failed: ' + e.message;
+      }
+    }
+
+    // --- Step 3: Credentials ---
+    async function saveCredentials() {
+      const clientId = document.getElementById('input-client-id').value.trim();
+      const clientSecret = document.getElementById('input-client-secret').value.trim();
+
+      if (!clientId) {
+        alert('Please enter your Client ID');
+        document.getElementById('input-client-id').focus();
+        return;
+      }
+      if (!clientSecret) {
+        alert('Please enter your Client Secret');
+        document.getElementById('input-client-secret').focus();
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${API}/api/save-credentials`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        goToStep(4);
+      } catch (e) {
+        alert('Error saving credentials: ' + e.message);
+      }
+    }
+
+    // --- Step 4: Partner Registration ---
+    async function registerPartner() {
+      const icon = document.getElementById('partner-icon');
+      const text = document.getElementById('partner-text');
+      const btn = document.getElementById('partner-btn');
+      const errBox = document.getElementById('partner-error');
+      const troubleshoot = document.getElementById('partner-troubleshoot');
+
+      icon.className = 'status-icon running';
+      icon.innerHTML = '<span class="spinner"></span>';
+      text.textContent = 'Contacting Tesla... (they are verifying your public key)';
+      btn.disabled = true;
+      errBox.style.display = 'none';
+      troubleshoot.style.display = 'none';
+
+      try {
+        const resp = await fetch(`${API}/api/register-partner`, { method: 'POST' });
+        const data = await resp.json();
+
+        if (data.success) {
+          icon.className = 'status-icon success';
+          icon.textContent = '\u2713';
+          text.textContent = 'Verified! Tesla confirmed your app registration.';
+          setTimeout(() => goToStep(5), 800);
+        } else {
+          icon.className = 'status-icon error';
+          icon.textContent = '!';
+          text.textContent = 'Verification failed';
+
+          let msg = 'Tesla returned an error';
+          if (data.step === 'token') {
+            msg = 'Could not authenticate with Tesla. Please check your Client ID and Client Secret.';
+          } else if (data.step === 'register') {
+            msg = 'Tesla could not verify your public key. Make sure the test in Step 2 passed.';
+          }
+          if (data.error) {
+            msg += '\n\nDetails: ' + data.error;
+          }
+          errBox.textContent = msg;
+          errBox.style.display = 'block';
+          troubleshoot.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Retry';
+        }
+      } catch (e) {
+        icon.className = 'status-icon error';
+        icon.textContent = '!';
+        text.textContent = 'Network error. Check your internet connection.';
+        btn.disabled = false;
+      }
+    }
+
+    // --- Step 5: OAuth ---
+    async function startOAuth() {
+      try {
+        const resp = await fetch(`${API}/api/oauth-url`);
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        window.open(data.url, '_blank');
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    // --- Utilities ---
+    function copyText(btn, elementId, directValue) {
+      const text = directValue || document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = original;
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    async function resetWizard() {
+      if (!confirm('This will clear all saved credentials and start over. Are you sure?')) return;
+      await fetch(`${API}/api/reset`, { method: 'POST' });
+      location.reload();
+    }
+
+    // Boot
+    init();
+  </script>
+</body>
+</html>
