@@ -1,6 +1,7 @@
 """Tesla Fleet API helpers for partner authentication and OAuth."""
 
 import logging
+import re
 import urllib.parse
 from pathlib import Path
 
@@ -20,7 +21,6 @@ def _sanitize_error(body: str) -> str:
     if len(body) > 300:
         body = body[:300] + "...(truncated)"
     # Redact anything that looks like a token or secret
-    import re
     body = re.sub(r'"(access_token|refresh_token|client_secret|code)"\s*:\s*"[^"]*"',
                   r'"\1":"[REDACTED]"', body)
     return body
@@ -93,16 +93,15 @@ async def exchange_code(client_id: str, client_secret: str, code: str, redirect_
         "redirect_uri": redirect_uri,
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(token_url, json=payload) as resp:
-            if resp.status != 200:
-                body = await resp.text()
-                safe = _sanitize_error(body)
-                logger.error("Token exchange failed (HTTP %d)", resp.status)
-                return {"success": False, "error": safe}
-            data = await resp.json()
-            logger.info("Token exchange successful")
-            return {"success": True, "data": data}
+    async with aiohttp.ClientSession() as session, session.post(token_url, json=payload) as resp:
+        if resp.status != 200:
+            body = await resp.text()
+            safe = _sanitize_error(body)
+            logger.error("Token exchange failed (HTTP %d)", resp.status)
+            return {"success": False, "error": safe}
+        data = await resp.json()
+        logger.info("Token exchange successful")
+        return {"success": True, "data": data}
 
 
 async def refresh_tokens(client_id: str, client_secret: str, refresh_token: str) -> dict:
@@ -115,16 +114,15 @@ async def refresh_tokens(client_id: str, client_secret: str, refresh_token: str)
         "refresh_token": refresh_token,
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(token_url, json=payload) as resp:
-            if resp.status != 200:
-                body = await resp.text()
-                safe = _sanitize_error(body)
-                logger.error("Token refresh failed (HTTP %d)", resp.status)
-                return {"success": False, "error": safe}
-            data = await resp.json()
-            logger.info("Token refresh successful")
-            return {"success": True, "data": data}
+    async with aiohttp.ClientSession() as session, session.post(token_url, json=payload) as resp:
+        if resp.status != 200:
+            body = await resp.text()
+            safe = _sanitize_error(body)
+            logger.error("Token refresh failed (HTTP %d)", resp.status)
+            return {"success": False, "error": safe}
+        data = await resp.json()
+        logger.info("Token refresh successful")
+        return {"success": True, "data": data}
 
 
 async def _api_request(access_token: str, method: str, path: str, json_body: dict | None = None) -> dict:
@@ -132,18 +130,17 @@ async def _api_request(access_token: str, method: str, path: str, json_body: dic
     url = f"{TESLA_API_BASE}{path}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    async with aiohttp.ClientSession() as session:
-        async with session.request(method, url, headers=headers, json=json_body,
-                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
-            try:
-                data = await resp.json()
-            except Exception:
-                data = {"raw": _sanitize_error(await resp.text())}
-            if resp.status == 200:
-                return {"success": True, "data": data}
-            safe = _sanitize_error(str(data))
-            logger.error("API request %s %s failed (HTTP %d)", method, path, resp.status)
-            return {"success": False, "status": resp.status, "error": safe}
+    async with aiohttp.ClientSession() as session, session.request(method, url, headers=headers, json=json_body,
+                               timeout=aiohttp.ClientTimeout(total=15)) as resp:
+        try:
+            data = await resp.json()
+        except Exception:
+            data = {"raw": _sanitize_error(await resp.text())}
+        if resp.status == 200:
+            return {"success": True, "data": data}
+        safe = _sanitize_error(str(data))
+        logger.error("API request %s %s failed (HTTP %d)", method, path, resp.status)
+        return {"success": False, "status": resp.status, "error": safe}
 
 
 async def list_vehicles(access_token: str) -> dict:

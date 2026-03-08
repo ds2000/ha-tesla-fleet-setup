@@ -3,8 +3,8 @@ set -e
 
 echo "Starting Tesla Fleet Setup add-on (version: ${BUILD_VERSION:-unknown})..."
 
-# Ensure data directory exists for persistent key storage
-mkdir -p /data/keys
+# Ensure data directories exist for persistent storage
+mkdir -p /data/keys /data/tls
 
 # Debug: log whether SUPERVISOR_TOKEN is available
 if [ -n "$SUPERVISOR_TOKEN" ]; then
@@ -26,6 +26,13 @@ else
         export SUPERVISOR_TOKEN="$HASSIO_TOKEN"
         echo "Using legacy HASSIO_TOKEN as SUPERVISOR_TOKEN"
     fi
+fi
+
+# Check for tesla-http-proxy binary
+if command -v tesla-http-proxy &>/dev/null || [ -x /usr/local/bin/tesla-http-proxy ]; then
+    echo "tesla-http-proxy binary: available"
+else
+    echo "WARNING: tesla-http-proxy binary not found"
 fi
 
 exec python3 /opt/tesla-setup/server.py

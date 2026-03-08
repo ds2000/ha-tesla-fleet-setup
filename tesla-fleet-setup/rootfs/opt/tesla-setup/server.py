@@ -10,12 +10,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import aiohttp
-from aiohttp import web
-
-import keygen
-import tunnel
-import tesla_api
+import ha_credentials
 import ha_discovery
+import keygen
+import proxy
+import tesla_api
+import tunnel
+from aiohttp import web
 
 # --- Logging setup: suppress credential leaks ---
 
@@ -36,6 +37,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 STATE_PATH = Path("/data/state.json")
 
 tunnel_manager = tunnel.TunnelManager()
+proxy_manager = proxy.ProxyManager()
 
 # In-memory state (persisted to /data/state.json)
 state = {
@@ -87,6 +89,8 @@ async def api_status(request):
         "partner_registered": state["partner_registered"],
         "has_credentials": state["client_id"] is not None,
         "has_tokens": state["tokens"] is not None,
+        "ha_credentials_injected": state.get("ha_credentials_injected", False),
+        "proxy": proxy_manager.get_status(),
     })
 
 
@@ -158,7 +162,8 @@ async def api_verify_url(request):
                 if resp.status == 200:
                     body = await resp.text()
                     if "BEGIN PUBLIC KEY" in body:
-                        return web.json_response({"verified": True, "url": f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"})
+                        well_known = f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"
+                        return web.json_response({"verified": True, "url": well_known})
                 return web.json_response({"verified": False, "status": resp.status})
     except Exception as e:
         return web.json_response({"verified": False, "error": str(e)})
@@ -236,6 +241,28 @@ async def oauth_callback(request):
         state["oauth_state"] = None
         save_state()
         logger.info("OAuth complete — tokens saved")
+
+        # Inject credentials into HA Application Credentials store
+        cred_result = await ha_credentials.inject_credentials(
+            state["client_id"], state["client_secret"]
+        )
+        if cred_result["success"]:
+            state["ha_credentials_injected"] = True
+            save_state()
+            if cred_result.get("already_exists"):
+                logger.info("Application Credentials already present in HA")
+            else:
+                logger.info("Application Credentials injected into HA")
+        else:
+            logger.warning("Could not inject credentials: %s", cred_result.get("error"))
+
+        # Auto-start the signing proxy now that setup is complete
+        if proxy.proxy_available():
+            proxy_result = await proxy_manager.start()
+            if proxy_result["success"]:
+                logger.info("Signing proxy started after OAuth completion")
+            else:
+                logger.warning("Proxy start failed: %s", proxy_result.get("error"))
         # Return success page directly — don't redirect, because the
         # tunnel guard would block /?setup=complete
         return web.Response(
@@ -256,13 +283,12 @@ async def oauth_callback(request):
             ),
             content_type="text/html",
         )
-    else:
-        # Never expose raw error detail to browser
-        logger.error("Token exchange failed")
-        return web.Response(
-            text="Token exchange failed. Check the add-on logs for details.",
-            status=500,
-        )
+    # Never expose raw error detail to browser
+    logger.error("Token exchange failed")
+    return web.Response(
+        text="Token exchange failed. Check the add-on logs for details.",
+        status=500,
+    )
 
 
 async def _get_access_token():
@@ -341,6 +367,34 @@ async def api_command(request):
     return web.json_response(result)
 
 
+async def api_proxy_status(request):
+    """Return proxy status."""
+    return web.json_response(proxy_manager.get_status())
+
+
+async def api_proxy_start(request):
+    """Start the tesla-http-proxy."""
+    result = await proxy_manager.start()
+    return web.json_response(result)
+
+
+async def api_proxy_stop(request):
+    """Stop the tesla-http-proxy."""
+    await proxy_manager.stop()
+    return web.json_response({"success": True, **proxy_manager.get_status()})
+
+
+async def api_inject_credentials(request):
+    """Manually inject credentials into HA Application Credentials."""
+    if not state["client_id"] or not state["client_secret"]:
+        return web.json_response({"success": False, "error": "No credentials saved"}, status=400)
+    result = await ha_credentials.inject_credentials(state["client_id"], state["client_secret"])
+    if result["success"]:
+        state["ha_credentials_injected"] = True
+        save_state()
+    return web.json_response(result)
+
+
 async def api_reset(request):
     """Reset wizard state (start over)."""
     global state
@@ -353,10 +407,10 @@ async def api_reset(request):
         "partner_registered": False,
         "oauth_state": None,
         "tokens": None,
-        "key_paired": False,
     }
     save_state()
     await tunnel_manager.stop()
+    await proxy_manager.stop()
     logger.info("Wizard state reset")
     return web.json_response({"success": True})
 
@@ -377,15 +431,25 @@ async def wizard_page(request):
 
 
 async def on_startup(app):
-    """Generate keys on startup."""
+    """Generate keys on startup and auto-start proxy if setup is complete."""
     load_state()
     keygen.ensure_keys()
     logger.info("Keys ready. Wizard available on port %d", PORT)
 
+    # Auto-start proxy if setup was previously completed
+    if state.get("tokens") and proxy.proxy_available():
+        logger.info("Setup previously completed — starting signing proxy")
+        result = await proxy_manager.start()
+        if result["success"]:
+            logger.info("Signing proxy running on port %d", proxy.PROXY_PORT)
+        else:
+            logger.warning("Proxy auto-start failed: %s", result.get("error"))
+
 
 async def on_shutdown(app):
-    """Clean up tunnel on shutdown."""
+    """Clean up tunnel and proxy on shutdown."""
     await tunnel_manager.stop()
+    await proxy_manager.stop()
 
 
 TUNNEL_ALLOWED_PATHS = {
@@ -430,6 +494,14 @@ def create_app() -> web.Application:
     app.router.add_post("/api/register-partner", api_register_partner)
     app.router.add_get("/api/oauth-url", api_get_oauth_url)
     app.router.add_post("/api/reset", api_reset)
+
+    # HA integration
+    app.router.add_post("/api/inject-credentials", api_inject_credentials)
+
+    # Proxy management
+    app.router.add_get("/api/proxy/status", api_proxy_status)
+    app.router.add_post("/api/proxy/start", api_proxy_start)
+    app.router.add_post("/api/proxy/stop", api_proxy_stop)
 
     # API testing endpoints
     app.router.add_get("/api/vehicles", api_vehicles)

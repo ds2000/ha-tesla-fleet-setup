@@ -30,9 +30,8 @@ async def _supervisor_get(path: str) -> dict | None:
                     data = await resp.json()
                     logger.debug("Supervisor %s response: %s", path, data)
                     return data.get("data", data)
-                else:
-                    body = await resp.text()
-                    logger.warning("Supervisor %s returned %d: %s", path, resp.status, body[:200])
+                body = await resp.text()
+                logger.warning("Supervisor %s returned %d: %s", path, resp.status, body[:200])
     except Exception as e:
         logger.error("Supervisor API call failed for %s: %s", path, e)
     return None
@@ -60,8 +59,7 @@ def _extract_nabu_casa_url(cloud_info: dict) -> str | None:
         )
         if remote_ok:
             return f"https://{remote_domain}"
-        else:
-            logger.info("Nabu Casa domain found (%s) but remote not connected", remote_domain)
+        logger.info("Nabu Casa domain found (%s) but remote not connected", remote_domain)
 
     return None
 

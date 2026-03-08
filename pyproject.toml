@@ -1,0 +1,65 @@
+[project]
+name = "ha-tesla-fleet-setup"
+version = "0.3.0"
+description = "Home Assistant add-on for Tesla Fleet API setup and signing proxy"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["tesla-fleet-setup/rootfs/opt/tesla-setup"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "S",     # bandit (security)
+    "B",     # bugbear
+    "A",     # builtins
+    "C4",    # comprehensions
+    "DTZ",   # datetime timezone
+    "T10",   # debugger
+    "ISC",   # implicit string concat
+    "PIE",   # misc lints
+    "PT",    # pytest style
+    "RSE",   # raise
+    "RET",   # return
+    "SIM",   # simplify
+    "TCH",   # type checking
+    "ARG",   # unused arguments
+    "ERA",   # commented out code
+    "PL",    # pylint
+]
+ignore = [
+    "S101",    # assert in tests is fine
+    "S104",    # binding to 0.0.0.0 is intentional (container)
+    "S110",    # try-except-pass is intentional for state loading
+    "S603",    # subprocess calls are intentional
+    "S607",    # partial executable path (we trust our container)
+    "PLR2004", # magic values in tests are fine
+    "PLW0602", # global state is intentional pattern
+    "PLW0603", # global state is intentional pattern
+    "PLC0415", # imports inside functions are fine for optional deps
+    "ARG001",  # unused function args (aiohttp handlers have `request`)
+    "ARG002",  # unused method args
+    "B008",    # function calls in defaults (aiohttp patterns)
+    "PLR0913", # too many arguments
+    "N999",    # module naming for HA add-on structure
+    "SIM105",  # contextlib.suppress less clear than try/except
+    "SIM115",  # context manager for open() in one-liners is fine
+    "SIM117",  # nested async with is clearer for aiohttp
+    "RSE102",  # parentheses on raised exception is fine
+    "RET504",  # unnecessary assignment before return is clearer
+    "RET505",  # unnecessary else after return is clearer
+    "E501",    # line length handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "PLR0913", "PLR2004", "ARG"]

@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-08
+
+### Added
+
+- **Built-in signing proxy** — tesla-http-proxy compiled from source and included
+  in the Docker image. After setup, it runs automatically on port 4443 to sign
+  vehicle commands (security level 10+)
+- **Auto-inject HA credentials** — Client ID and Client Secret are automatically
+  saved to HA's Application Credentials store via WebSocket API after OAuth
+  completion. The Tesla Fleet integration picks them up with zero re-entry.
+- Self-signed TLS certificate generation for inter-container proxy communication
+- Proxy management API endpoints: `/api/proxy/status`, `/api/proxy/start`, `/api/proxy/stop`
+- Credential injection endpoint: `/api/inject-credentials` with manual retry button
+- Proxy status card on completion page with start/stop toggle
+- HA credentials status card showing injection state
+- Integration guide showing how to configure HA Tesla Fleet, tesla_custom_component,
+  and other integrations to use the signing proxy
+- Proxy auto-starts on add-on boot if setup was previously completed
+- Comprehensive test suite: 102 tests covering keygen, proxy, server API, credentials,
+  and security
+- Security tests: credential exposure, tunnel isolation, OAuth replay, file permissions,
+  TLS cert validation, input sanitization
+- Ruff linting configuration with security rules (bandit)
+
+### Changed
+
+- Dockerfile now uses multi-stage build (Go builder + Alpine runtime)
+- Dropped i386 architecture (Go tesla-http-proxy doesn't support it)
+- Add-on is now a long-running service (proxy keeps running after setup)
+- Completion page updated: "keep this add-on running" instead of "safe to remove"
+- Finish Setup instructions simplified (no manual credential entry needed)
+- aiohttp upgraded to 3.13.3 (fixes 10 CVEs from 3.9.5)
+
 ## [0.2.6] - 2026-03-06
 
 ### Changed

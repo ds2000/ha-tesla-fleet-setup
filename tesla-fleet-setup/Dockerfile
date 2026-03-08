@@ -1,6 +1,21 @@
+# Stage 1: Build tesla-http-proxy from source
+FROM golang:1.23-alpine AS go-builder
+
+RUN apk add --no-cache git
+
+RUN git clone --depth 1 https://github.com/teslamotors/vehicle-command.git /build
+
+WORKDIR /build
+
+RUN go build -ldflags="-s -w" -o /tesla-http-proxy ./cmd/tesla-http-proxy
+
+# Stage 2: Final add-on image
 ARG BUILD_FROM
 FROM ${BUILD_FROM}
 ARG BUILD_VERSION=dev
+
+# Copy tesla-http-proxy binary from builder
+COPY --from=go-builder /tesla-http-proxy /usr/local/bin/tesla-http-proxy
 
 # Install Python, pip, and cloudflared
 RUN apk add --no-cache \

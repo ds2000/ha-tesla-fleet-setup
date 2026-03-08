@@ -1,0 +1,7 @@
+aiohttp==3.13.3
+cryptography>=41.0.0
+pytest>=8.0
+pytest-asyncio>=0.23
+pytest-aiohttp>=1.0
+aioresponses>=0.7
+ruff>=0.3.0

@@ -3,8 +3,8 @@
 import os
 from pathlib import Path
 
-from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 
 KEYS_DIR = Path("/data/keys")
 PRIVATE_KEY_PATH = KEYS_DIR / "private.pem"
