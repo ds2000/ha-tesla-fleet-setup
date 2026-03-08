@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-08
+
+### Added
+
+- **Auto-install private key** — private key is automatically copied to
+  `/config/tesla_fleet.key` so the HA Tesla Fleet integration finds it
+  without manual file management
+- **Finish Setup guide** on completion page — shows the exact domain to paste
+  when adding the Tesla Fleet integration in HA, with copy button
+- **Tunnel stays running** after setup — the Cloudflare tunnel keeps serving
+  the public key so the HA Tesla Fleet integration can verify it during its
+  own domain registration step
+- Tunnel auto-restarts on add-on reboot (warns if hostname changed)
+
+### Changed
+
+- Added `config:rw` mapping so the add-on can write the private key to HA's
+  config directory
+- Step 3 instructions now show two origin URLs and two redirect URIs
+  (one for the wizard, one for the HA integration)
+- Completion page reorganised: "Finish Setup in HA" guide appears first,
+  followed by proxy status and API testing
+
 ## [0.3.3] - 2026-03-08
 
 ### Fixed

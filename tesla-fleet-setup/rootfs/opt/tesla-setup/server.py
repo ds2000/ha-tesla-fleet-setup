@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import secrets
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -35,6 +36,25 @@ VERSION = os.environ.get("BUILD_VERSION", "dev")
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 STATE_PATH = Path("/data/state.json")
+
+HA_CONFIG_KEY = Path("/config/tesla_fleet.key")
+
+
+def install_key_to_ha():
+    """Copy private key to /config/tesla_fleet.key for the HA Tesla Fleet integration."""
+    src = keygen.PRIVATE_KEY_PATH
+    if not src.exists():
+        logger.warning("Private key not found at %s — cannot install to HA config", src)
+        return False
+    try:
+        shutil.copy2(src, HA_CONFIG_KEY)
+        os.chmod(HA_CONFIG_KEY, 0o600)
+        logger.info("Private key installed to %s", HA_CONFIG_KEY)
+        return True
+    except Exception as e:
+        logger.error("Failed to install key to HA config: %s", e)
+        return False
+
 
 tunnel_manager = tunnel.TunnelManager()
 proxy_manager = proxy.ProxyManager()
@@ -256,6 +276,9 @@ async def oauth_callback(request):
         else:
             logger.warning("Could not inject credentials: %s", cred_result.get("error"))
 
+        # Install private key to /config/tesla_fleet.key for HA integration
+        install_key_to_ha()
+
         # Auto-start the signing proxy now that setup is complete
         if proxy.proxy_available():
             proxy_result = await proxy_manager.start()
@@ -435,6 +458,28 @@ async def on_startup(app):
     load_state()
     keygen.ensure_keys()
     logger.info("Keys ready. Wizard available on port %d", PORT)
+
+    # Install key to HA config if setup was previously completed
+    if state.get("tokens") and not HA_CONFIG_KEY.exists():
+        install_key_to_ha()
+
+    # Auto-restart tunnel if setup used a tunnel (HA integration needs it for domain verification)
+    if state.get("tokens") and state.get("url_method") == "tunnel":
+        try:
+            url = await tunnel_manager.start(PORT)
+            old_url = state.get("public_key_url")
+            if url != old_url:
+                logger.warning(
+                    "Tunnel restarted with NEW URL: %s (was %s). "
+                    "You may need to re-register with Tesla if the domain changed.",
+                    url, old_url,
+                )
+                state["public_key_url"] = url
+                save_state()
+            else:
+                logger.info("Tunnel restarted: %s", url)
+        except Exception as e:
+            logger.warning("Failed to restart tunnel: %s", e)
 
     # Auto-start proxy if setup was previously completed
     if state.get("tokens") and proxy.proxy_available():

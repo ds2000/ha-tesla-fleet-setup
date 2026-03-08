@@ -1,6 +1,6 @@
 name: "Tesla Fleet Setup"
 description: "Guided setup wizard and signing proxy for Tesla Fleet API integration with Home Assistant"
-version: "0.3.3"
+version: "0.4.0"
 slug: tesla-fleet-setup
 url: "https://github.com/ds2000/ha-tesla-fleet-setup"
 arch:
@@ -17,6 +17,7 @@ ports:
   8099/tcp: null
   4443/tcp: 4443
 map:
+  - config:rw
   - ssl:rw
   - share:rw
 options:
