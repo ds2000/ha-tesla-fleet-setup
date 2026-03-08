@@ -662,17 +662,30 @@
           then paste your URLs:
           <div style="margin-top: 12px">
             <div class="copy-field">
-              <span class="field-label">Allowed Origin URL</span>
+              <span class="field-label">Allowed Origin URL (1 of 2)</span>
               <span class="field-value" id="origin-value"></span>
               <button class="btn-copy" onclick="copyText(this, 'origin-value')">Copy</button>
             </div>
             <div class="copy-field">
-              <span class="field-label">Allowed Redirect URI</span>
+              <span class="field-label">Allowed Origin URL (2 of 2)</span>
+              <span class="field-value" id="origin-ha-value">https://my.home-assistant.io</span>
+              <button class="btn-copy" onclick="copyText(this, 'origin-ha-value')">Copy</button>
+            </div>
+            <div class="copy-field">
+              <span class="field-label">Allowed Redirect URI (1 of 2)</span>
               <span class="field-value" id="redirect-value"></span>
               <button class="btn-copy" onclick="copyText(this, 'redirect-value')">Copy</button>
             </div>
           </div>
-          <span class="tip">Leave "Allowed Returned URL(s)" empty &mdash; it's optional</span>
+          <span class="tip">After pasting the first redirect URI, click the <strong>+</strong> button next to it to add a second one:</span>
+          <div style="margin-top: 8px">
+            <div class="copy-field">
+              <span class="field-label">Allowed Redirect URI (2 of 2)</span>
+              <span class="field-value" id="redirect-ha-value">https://my.home-assistant.io/redirect/oauth</span>
+              <button class="btn-copy" onclick="copyText(this, 'redirect-ha-value')">Copy</button>
+            </div>
+          </div>
+          <span class="tip">The first URI is for this setup wizard. The second is for the HA Tesla Fleet integration &mdash; without it, adding the integration in HA will fail.<br>Leave "Allowed Returned URL(s)" empty &mdash; it's optional.</span>
           Then click <strong>Next</strong>.
           <div class="screenshot-placeholder">
             <img src="static/screenshots/api-app-client.png" alt="Client Details form"
