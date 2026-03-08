@@ -1523,7 +1523,7 @@
         if (data.success && data.data && data.data.response) {
           const vd = data.data.response[section];
           if (!vd) {
-            setApiStatus(cardId, 'fail', 'Vehicle may be asleep — try Wake Up first');
+            setApiStatus(cardId, 'fail', `No ${section} data returned — section may not be available for this vehicle`);
             return;
           }
           let summary = '';
@@ -1543,7 +1543,11 @@
           }
           setApiStatus(cardId, 'ok', summary);
         } else {
-          const err = data.error || 'Failed — vehicle may be asleep';
+          let err = data.error || 'Unknown error';
+          if (data.status === 408) err = 'Vehicle is asleep — try Wake Up first';
+          else if (data.status === 403) err = 'Permission denied (HTTP 403) — check your app scopes on developer.tesla.com';
+          else if (data.status === 401) err = 'Token expired or invalid — try resetting and reconnecting';
+          else if (data.status) err = `HTTP ${data.status}: ${err}`;
           setApiStatus(cardId, 'fail', err);
         }
       } catch (e) {
@@ -1565,7 +1569,7 @@
           if (r && r.result === true) {
             setApiStatus(cardId, 'ok', 'Command sent successfully');
           } else {
-            setApiStatus(cardId, 'fail', r?.reason || 'Command rejected — vehicle may be asleep');
+            setApiStatus(cardId, 'fail', r?.reason || 'Command rejected by vehicle');
           }
         } else {
           setApiStatus(cardId, 'fail', data.error || 'Command failed');
