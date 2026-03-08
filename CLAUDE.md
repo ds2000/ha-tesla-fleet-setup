@@ -4,9 +4,9 @@
 
 Home Assistant add-on that provides a guided wizard for setting up the Tesla
 Fleet API integration **and a built-in signing proxy** for vehicle commands.
-Automates key generation, public key hosting, partner authentication, and
-runs `tesla-http-proxy` — reducing setup from a multi-hour manual process
-to a ~10 minute guided flow.
+Automates key generation, public key hosting, partner authentication, credential
+injection, and runs `tesla-http-proxy` — reducing setup from a multi-hour
+manual process to a ~10 minute guided flow.
 
 **Repo:** https://github.com/ds2000/ha-tesla-fleet-setup
 **Related repos:**
@@ -20,7 +20,7 @@ to a ~10 minute guided flow.
 All commands run without prompting. Use `python3` (not `python`).
 
 ```bash
-# Tests (93 tests — keygen, proxy, server API, security)
+# Tests (102 tests — keygen, proxy, server API, credentials, security)
 python3 -m pytest tests/ -v
 
 # Lint (ruff with bandit security rules)
@@ -63,6 +63,7 @@ tesla-fleet-setup/
     proxy.py                           # tesla-http-proxy management + TLS certs
     tunnel.py                          # Cloudflare quick tunnel management
     tesla_api.py                       # Tesla Fleet API (partner auth + OAuth)
+    ha_credentials.py                  # Inject credentials into HA via WebSocket
     ha_discovery.py                    # Detect Nabu Casa / external URL
     templates/wizard.html              # Single-page wizard UI (vanilla HTML/JS)
     static/                            # CSS, screenshots for guide
@@ -71,6 +72,7 @@ tests/
   test_keygen.py                       # Key generation tests
   test_proxy.py                        # Proxy management tests
   test_server.py                       # API endpoint tests
+  test_ha_credentials.py               # Credential injection tests
   test_security.py                     # Security-focused tests
 pyproject.toml                         # pytest + ruff config
 requirements-dev.txt                   # Dev/test dependencies
@@ -84,6 +86,7 @@ requirements-dev.txt                   # Dev/test dependencies
 /data/tls/cert.pem        # Self-signed TLS cert for proxy
 /data/tls/key.pem         # TLS private key (chmod 600)
 /data/state.json          # Wizard state (chmod 600, contains secrets)
+/config/tesla_fleet.key   # Copy of private key for HA integration (chmod 600)
 ```
 
 ---
@@ -92,10 +95,32 @@ requirements-dev.txt                   # Dev/test dependencies
 
 1. **Generate Keys** — Auto-generates EC P-256 key pair
 2. **Expose Public Key** — Starts Cloudflare tunnel (always needed; HA Core doesn't serve .well-known)
-3. **Register Tesla App** — Guided walkthrough with copy-paste fields for developer.tesla.com
+3. **Register Tesla App** — Guided walkthrough with copy-paste fields for developer.tesla.com.
+   Instructs users to add TWO origins and TWO redirect URIs:
+   - Wizard tunnel URL + `/oauth/callback`
+   - `https://my.home-assistant.io` + `https://my.home-assistant.io/redirect/oauth`
 4. **Partner Authentication** — Calls Tesla API to register partner (triggers .well-known verification)
 5. **Connect** — OAuth flow to authorize HA with user's Tesla account
-6. **Complete** — Proxy auto-starts, shows proxy URL and integration instructions
+6. **Complete** — Proxy auto-starts, credentials injected into HA, private key
+   copied to `/config/tesla_fleet.key`, tunnel stays running, completion page
+   shows domain to paste into HA integration
+
+---
+
+## Post-Setup Flow (HA Tesla Fleet Integration)
+
+After the wizard completes, the user adds the HA Tesla Fleet integration:
+1. Credentials already injected via WebSocket API → no manual entry needed
+2. Private key already at `/config/tesla_fleet.key` → HA finds it automatically
+3. User signs in with Tesla OAuth (redirect via `my.home-assistant.io`)
+4. HA asks for the domain → user pastes from our completion page (copy button)
+5. HA calls `partner_accounts` → tunnel serves the public key for verification
+6. User taps NFC key card on vehicle → key enrollment complete
+
+**Critical**: The Cloudflare tunnel must stay running so HA can verify the
+domain during its own setup. The tunnel now auto-restarts on add-on boot.
+Note: quick tunnels get new hostnames on restart — if the add-on restarts
+before the user completes HA integration setup, they may need to re-register.
 
 ---
 
@@ -113,7 +138,7 @@ After setup completes, `tesla-http-proxy` runs on port 4443:
 ## Security Requirements
 
 ### Always run before committing or releasing:
-1. `python3 -m pytest tests/ -v` — all 93 tests must pass
+1. `python3 -m pytest tests/ -v` — all 102 tests must pass
 2. `python3 -m ruff check tesla-fleet-setup/rootfs/opt/tesla-setup/ tests/` — must be clean
 3. `python3 -m pip_audit -r tesla-fleet-setup/requirements.txt -r requirements-dev.txt` — no known CVEs
 4. Check `pip list --outdated` and update to latest stable versions
@@ -132,7 +157,6 @@ After setup completes, `tesla-http-proxy` runs on port 4443:
 - Do not store Tesla client_secret anywhere except /data/ (never in source)
 - Do not use any JS framework — vanilla HTML/JS only
 - Do not skip the self-test verification step
-- Do not leave the Cloudflare tunnel running after setup is complete
 - Do not expose any endpoint other than .well-known and /oauth/callback through the tunnel
 - Do not weaken file permissions on keys or state
 - Do not log raw tokens, secrets, or authorization codes
@@ -147,7 +171,7 @@ After setup completes, `tesla-http-proxy` runs on port 4443:
 - Copy buttons for every value the user needs to paste
 - Auto-detect environment before asking user to do manual work
 - Self-test verification before proceeding to partner registration
-- Add-on is a long-running service (proxy stays up after setup)
+- Add-on is a long-running service (proxy + tunnel stay up after setup)
 
 ---
 
@@ -163,9 +187,11 @@ After setup completes, `tesla-http-proxy` runs on port 4443:
 
 ## Workflow Preferences
 
-- Never prompt for confirmation on bash/python commands — just run them
+- **NEVER prompt for confirmation on ANY command** — just run them
+- **NEVER ask "shall I do X?"** — just do it
 - Use `python3` not `python`
 - Run tests and lint after every code change
 - Fix lint issues immediately, don't defer
 - Keep CHANGELOG.md updated with every version change
-- Bump version in both config.yaml and pyproject.toml
+- Bump version in config.yaml
+- Commit, tag, and push in one go when releasing
