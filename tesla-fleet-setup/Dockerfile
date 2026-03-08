@@ -1,3 +1,6 @@
+# Global build arg — must be before any FROM to be available in all stages
+ARG BUILD_FROM
+
 # Stage 1: Build tesla-http-proxy from source
 FROM golang:1.23-alpine AS go-builder
 
@@ -10,7 +13,6 @@ WORKDIR /build
 RUN go build -ldflags="-s -w" -o /tesla-http-proxy ./cmd/tesla-http-proxy
 
 # Stage 2: Final add-on image
-ARG BUILD_FROM
 FROM ${BUILD_FROM}
 ARG BUILD_VERSION=dev
 
