@@ -1523,7 +1523,13 @@
         if (data.success && data.data && data.data.response) {
           const vd = data.data.response[section];
           if (!vd) {
-            setApiStatus(cardId, 'fail', `No ${section} data returned — section may not be available for this vehicle`);
+            const sv = vehicles.find(v => String(v.id) === String(vid));
+            const vState = sv ? sv.state : '';
+            if (vState === 'offline' || vState === 'asleep') {
+              setApiStatus(cardId, 'fail', `Vehicle is ${vState} — tap Wake Up and try again`);
+            } else {
+              setApiStatus(cardId, 'fail', `No ${section} data returned`);
+            }
             return;
           }
           let summary = '';
