@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-03-09
+
+### Changed
+
+- Replaced Cloudflare tunnel with DuckDNS-only domain setup
+- Step-by-step DuckDNS wizard with auto-generated subdomain and screenshots
+- UPnP auto-port-forwarding integrated into setup flow
+- Removed cloudflared binary from Docker image (smaller build)
+- Removed tunnel guard middleware (no longer needed)
+
 ## [0.6.0] - 2026-03-09
 
 ### Added
