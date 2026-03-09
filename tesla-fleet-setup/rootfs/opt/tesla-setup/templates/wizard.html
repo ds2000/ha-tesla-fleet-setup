@@ -873,6 +873,15 @@
           <button class="btn-test" id="ha-creds-btn" onclick="injectCredentials()" style="display:none">Retry</button>
         </div>
 
+        <div class="api-card" id="partner-reg-card">
+          <div class="api-indicator" id="partner-reg-indicator"></div>
+          <div class="api-info">
+            <div class="api-name">Partner Registration</div>
+            <div class="api-desc" id="partner-reg-text">Domain registered with Tesla</div>
+          </div>
+          <button class="btn-test" id="partner-reg-btn" onclick="reRegisterPartner()">Re-register</button>
+        </div>
+
         <div id="proxy-integration-info" style="display:none"></div>
         <div id="proxy-unavailable" style="display:none; margin-top: 12px;">
           <div class="info-box warning">
@@ -1156,6 +1165,38 @@
             ? 'Credentials already present in HA'
             : 'Credentials saved to HA — ready to add Tesla Fleet integration';
           btn.style.display = 'none';
+        } else {
+          indicator.className = 'api-indicator fail';
+          text.textContent = 'Failed: ' + (data.error || 'Unknown error');
+          btn.textContent = 'Retry';
+          btn.disabled = false;
+        }
+      } catch (e) {
+        indicator.className = 'api-indicator fail';
+        text.textContent = 'Error: ' + e.message;
+        btn.textContent = 'Retry';
+        btn.disabled = false;
+      }
+    }
+
+    async function reRegisterPartner() {
+      const indicator = document.getElementById('partner-reg-indicator');
+      const text = document.getElementById('partner-reg-text');
+      const btn = document.getElementById('partner-reg-btn');
+
+      indicator.className = 'api-indicator running';
+      text.textContent = 'Re-registering domain with Tesla...';
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch('api/register-partner', { method: 'POST' });
+        const data = await resp.json();
+
+        if (data.success) {
+          indicator.className = 'api-indicator ok';
+          text.textContent = 'Domain registered — now open the enrol link on your phone';
+          btn.textContent = 'Re-register';
+          btn.disabled = false;
         } else {
           indicator.className = 'api-indicator fail';
           text.textContent = 'Failed: ' + (data.error || 'Unknown error');
