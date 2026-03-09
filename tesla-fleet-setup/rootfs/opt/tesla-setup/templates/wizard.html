@@ -998,6 +998,7 @@
           }
           goToStep(data.step);
         }
+        hasLoaded = true;
       } catch (e) {
         console.error('Failed to load status:', e);
       }
@@ -1603,11 +1604,14 @@
     init();
 
     // Re-init when the tab becomes visible (HA ingress panel switches)
+    // but only if we haven't loaded yet (avoid resetting mid-use)
+    let hasLoaded = false;
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) init();
+      if (!document.hidden && !hasLoaded) init();
     });
-    // Also handle HA panel navigation (iframe gets shown without full reload)
-    window.addEventListener('focus', () => init());
+    window.addEventListener('focus', () => {
+      if (!hasLoaded) init();
+    });
   </script>
 </body>
 </html>
