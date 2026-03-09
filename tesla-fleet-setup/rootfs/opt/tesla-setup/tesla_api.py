@@ -229,6 +229,11 @@ async def _api_request(access_token: str, method: str, path: str, json_body: dic
         except Exception:
             data = {"raw": _sanitize_error(await resp.text())}
         if resp.status == 200:
+            # Log response keys for debugging vehicle_data issues
+            if "vehicle_data" in path:
+                response = data.get("response", data)
+                keys = [k for k in response if k not in ("id", "user_id", "vehicle_id", "vin", "color", "access_type", "granular_access")]
+                logger.info("vehicle_data response keys: %s", keys)
             return {"success": True, "data": data}
         safe = _sanitize_error(str(data))
         logger.error("API request %s %s failed (HTTP %d)", method, path, resp.status)

@@ -1531,15 +1531,18 @@
       try {
         const resp = await fetch(`api/vehicles/${vid}/data`);
         const data = await resp.json();
-        if (data.success && data.data && data.data.response) {
-          const vd = data.data.response[section];
+        if (data.success && data.data) {
+          // Handle both {response: {section: ...}} and flat {section: ...}
+          const resp = data.data.response || data.data;
+          const vd = resp[section];
           if (!vd) {
             const sv = vehicles.find(v => String(v.id) === String(vid));
             const vState = sv ? sv.state : '';
             if (vState === 'offline' || vState === 'asleep') {
               setApiStatus(cardId, 'fail', `Vehicle is ${vState} — tap Wake Up and try again`);
             } else {
-              setApiStatus(cardId, 'fail', `No ${section} data returned`);
+              const keys = Object.keys(resp).filter(k => k !== 'id' && k !== 'user_id' && k !== 'vehicle_id' && k !== 'vin');
+              setApiStatus(cardId, 'fail', `No ${section} in response (got: ${keys.join(', ') || 'empty'})`);
             }
             return;
           }
