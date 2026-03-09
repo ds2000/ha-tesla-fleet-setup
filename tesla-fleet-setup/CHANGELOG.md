@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] - 2026-03-09
+
+### Fixed
+
+- Wizard page now auto-refreshes state when opened via HA sidebar — no more
+  manual page refresh needed (listens for visibility and focus events)
+
 ## [0.5.4] - 2026-03-09
 
 ### Fixed

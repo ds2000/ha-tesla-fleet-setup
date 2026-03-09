@@ -1601,6 +1601,13 @@
 
     // Boot
     init();
+
+    // Re-init when the tab becomes visible (HA ingress panel switches)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) init();
+    });
+    // Also handle HA panel navigation (iframe gets shown without full reload)
+    window.addEventListener('focus', () => init());
   </script>
 </body>
 </html>
