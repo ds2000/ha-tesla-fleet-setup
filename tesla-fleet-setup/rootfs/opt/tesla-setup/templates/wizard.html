@@ -237,6 +237,23 @@
 
     .input-group input:focus { border-color: var(--accent); }
 
+    /* Standalone input fields (used outside .input-group) */
+    .input {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      outline: none;
+    }
+
+    .input:focus { border-color: var(--accent); }
+
+    .input::placeholder { color: #555; }
+
     /* Info boxes */
     .info-box {
       padding: 14px 16px;
@@ -583,13 +600,13 @@
             <span class="field-value" id="suggested-subdomain-value"></span>
             <button class="btn-copy" onclick="copyText(this, 'suggested-subdomain-value')">Copy</button>
           </div>
-          <p style="color:var(--text-muted);font-size:0.8rem;margin-top:6px">
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-top:10px;margin-bottom:6px">
             Already have a DuckDNS subdomain? Change it here:
           </p>
-          <div style="display:flex;align-items:center;gap:0;margin-top:4px">
+          <div style="display:flex;align-items:stretch;gap:0">
             <input type="text" id="duckdns-subdomain"
-                   class="input" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none">
-            <span style="background:var(--surface);border:1px solid var(--border);padding:8px 12px;font-size:0.9rem;color:var(--text-muted);border-radius:0 var(--radius) var(--radius) 0">.duckdns.org</span>
+                   class="input" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none;flex:1;min-width:0">
+            <span style="background:rgba(0,0,0,0.3);border:1px solid var(--border);padding:12px 14px;font-size:1rem;color:var(--text-muted);border-radius:0 var(--radius) var(--radius) 0;white-space:nowrap;display:flex;align-items:center">.duckdns.org</span>
           </div>
           <img src="static/screenshots/duckdns-add-domain.png" alt="DuckDNS add domain"
                style="width:100%;border-radius:8px;border:1px solid var(--border);margin-top:8px"
@@ -605,11 +622,9 @@
           <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
             Your token is shown at the top of the DuckDNS dashboard page. Copy it and paste it below.
           </p>
-          <label style="font-size:0.85rem;color:var(--text-muted)">
-            DuckDNS Token
-            <input type="password" id="duckdns-token" placeholder="Paste your DuckDNS token here"
-                   class="input" style="margin-top:4px">
-          </label>
+          <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:6px">DuckDNS Token</label>
+          <input type="password" id="duckdns-token" placeholder="Paste your DuckDNS token here"
+                 class="input">
           <img src="static/screenshots/duckdns-token.png" alt="DuckDNS token location"
                style="width:100%;border-radius:8px;border:1px solid var(--border);margin-top:8px"
                onerror="this.style.display='none'">
