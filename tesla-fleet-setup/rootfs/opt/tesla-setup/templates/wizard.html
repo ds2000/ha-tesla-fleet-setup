@@ -1216,33 +1216,24 @@
       const icon = document.getElementById('key-icon');
       const status = document.getElementById('key-status');
       const btn = document.getElementById('key-btn');
-      icon.className = 'status-icon running';
-      icon.innerHTML = '<span class="spinner"></span>';
-      status.querySelector('span:last-child').textContent = 'Generating keys and checking your setup...';
       btn.disabled = true;
+      btn.textContent = 'Generating...';
 
       try {
         const resp = await fetch(`api/generate-keys`, { method: 'POST' });
         const data = await resp.json();
 
-        icon.className = 'status-icon success';
-        icon.textContent = '\u2713';
-        status.querySelector('span:last-child').textContent = 'Keys generated successfully';
-
         publicKeyUrl = data.public_key_url || '';
         urlMethod = data.url_method || '';
 
-        setTimeout(() => {
-          goToStep(2);
-          // Always show tunnel option — Nabu Casa/external URLs point to HA Core
-          // which doesn't serve /.well-known/appkeys. Only our add-on does.
-          document.getElementById('url-needs-tunnel').style.display = 'block';
-        }, 600);
+        goToStep(2);
+        // Always show tunnel option — Nabu Casa/external URLs point to HA Core
+        // which doesn't serve /.well-known/appkeys. Only our add-on does.
+        document.getElementById('url-needs-tunnel').style.display = 'block';
       } catch (e) {
-        icon.className = 'status-icon error';
-        icon.textContent = '!';
-        status.querySelector('span:last-child').textContent = 'Error generating keys. Check the add-on logs.';
+        btn.textContent = 'Generate Keys';
         btn.disabled = false;
+        alert('Error generating keys. Check the add-on logs.');
       }
     }
 
