@@ -24,6 +24,7 @@ RUN apk add --no-cache \
     python3 \
     py3-pip \
     py3-cryptography \
+    certbot \
     curl \
     && ARCH="$(apk --print-arch)" \
     && case "$ARCH" in \

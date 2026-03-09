@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import aiohttp
+import duckdns
 import ha_credentials
 import ha_discovery
 import keygen
@@ -70,6 +71,8 @@ state = {
     "oauth_state": None,
     "tokens": None,
     "api_region": None,  # Detected Fleet API base URL
+    "duckdns_subdomain": None,
+    "duckdns_token": None,
 }
 
 
@@ -113,6 +116,10 @@ async def api_status(request):
         "ha_credentials_injected": state.get("ha_credentials_injected", False),
         "api_region": state.get("api_region"),
         "proxy": proxy_manager.get_status(),
+        "duckdns_configured": state.get("duckdns_subdomain") is not None,
+        "duckdns_subdomain": state.get("duckdns_subdomain"),
+        "duckdns_https_running": duckdns.https_running(),
+        "duckdns_has_cert": duckdns.has_cert(),
     })
 
 
@@ -171,15 +178,20 @@ async def api_verify_url(request):
     if not url:
         return web.json_response({"error": "No public URL configured"}, status=400)
 
-    # For tunnel URLs, test localhost — the tunnel proxies to us, but we
-    # can't resolve the trycloudflare.com hostname from inside the container.
+    # For tunnel/DuckDNS URLs, test localhost — the container can't resolve
+    # its own tunnel hostname or DuckDNS domain from inside.
     if ".trycloudflare.com" in url:
         test_url = f"http://localhost:{PORT}/.well-known/appspecific/com.tesla.3p.public-key.pem"
+    elif state.get("url_method") == "duckdns":
+        # DuckDNS: test the local HTTPS server on port 443
+        test_url = f"https://localhost:{duckdns.HTTPS_PORT}/.well-known/appspecific/com.tesla.3p.public-key.pem"
     else:
         test_url = f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"
 
     try:
-        async with aiohttp.ClientSession() as session:
+        # Skip TLS verify for localhost self-test (DuckDNS cert is for the domain, not localhost)
+        connector = aiohttp.TCPConnector(ssl=False) if "localhost" in test_url and test_url.startswith("https") else None
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(test_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 200:
                     body = await resp.text()
@@ -437,6 +449,60 @@ async def api_inject_credentials(request):
     return web.json_response(result)
 
 
+async def api_duckdns_verify(request):
+    """Verify DuckDNS credentials work."""
+    data = await request.json()
+    subdomain = data.get("subdomain", "").strip().lower()
+    token = data.get("token", "").strip()
+    if not subdomain or not token:
+        return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
+    result = await duckdns.verify_token(subdomain, token)
+    return web.json_response(result)
+
+
+async def api_duckdns_setup(request):
+    """Configure DuckDNS: update IP, obtain cert, start HTTPS server."""
+    data = await request.json()
+    subdomain = data.get("subdomain", "").strip().lower()
+    token = data.get("token", "").strip()
+    if not subdomain or not token:
+        return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
+
+    # 1. Update DuckDNS IP
+    ip_ok = await duckdns.update_ip(subdomain, token)
+    if not ip_ok:
+        return web.json_response({"success": False, "error": "DuckDNS IP update failed — check token"}, status=400)
+
+    # 2. Obtain Let's Encrypt certificate
+    cert_result = await duckdns.obtain_cert(subdomain, token)
+    if not cert_result["success"]:
+        return web.json_response(cert_result, status=500)
+
+    # 3. Start HTTPS server + IP updater
+    https_ok = await duckdns.start_https_server()
+    if not https_ok:
+        return web.json_response({"success": False, "error": "Failed to start HTTPS server"}, status=500)
+    duckdns.start_updater(subdomain, token)
+    duckdns.start_renewal_checker(subdomain, token)
+
+    # 4. Save state
+    domain = f"{subdomain}.duckdns.org"
+    public_url = f"https://{domain}"
+    state["duckdns_subdomain"] = subdomain
+    state["duckdns_token"] = token
+    state["public_key_url"] = public_url
+    state["url_method"] = "duckdns"
+    save_state()
+
+    # Stop Cloudflare tunnel if running (no longer needed)
+    if tunnel_manager.running:
+        await tunnel_manager.stop()
+        logger.info("Stopped Cloudflare tunnel — using DuckDNS now")
+
+    logger.info("DuckDNS configured: %s (HTTPS serving .well-known)", domain)
+    return web.json_response({"success": True, "url": public_url, "domain": domain})
+
+
 async def api_reset(request):
     """Reset wizard state (start over)."""
     global state
@@ -449,10 +515,13 @@ async def api_reset(request):
         "partner_registered": False,
         "oauth_state": None,
         "tokens": None,
+        "duckdns_subdomain": None,
+        "duckdns_token": None,
     }
     save_state()
     await tunnel_manager.stop()
     await proxy_manager.stop()
+    await duckdns.stop_all()
     logger.info("Wizard state reset")
     return web.json_response({"success": True})
 
@@ -487,8 +556,18 @@ async def on_startup(app):
     if state.get("tokens") and not HA_CONFIG_KEY.exists():
         install_key_to_ha()
 
+    # Auto-start DuckDNS if configured (stable domain, replaces tunnel)
+    if state.get("duckdns_subdomain") and state.get("duckdns_token"):
+        subdomain = state["duckdns_subdomain"]
+        token = state["duckdns_token"]
+        try:
+            await duckdns.start_all(subdomain, token)
+            logger.info("DuckDNS active: %s.duckdns.org (HTTPS + IP updater)", subdomain)
+        except Exception as e:
+            logger.warning("DuckDNS startup failed: %s", e)
+
     # Auto-restart tunnel if setup used a tunnel (HA integration needs it for domain verification)
-    if state.get("tokens") and state.get("url_method") == "tunnel":
+    elif state.get("tokens") and state.get("url_method") == "tunnel":
         try:
             url = await tunnel_manager.start(PORT)
             old_url = state.get("public_key_url")
@@ -516,9 +595,10 @@ async def on_startup(app):
 
 
 async def on_shutdown(app):
-    """Clean up tunnel and proxy on shutdown."""
+    """Clean up tunnel, proxy, and DuckDNS on shutdown."""
     await tunnel_manager.stop()
     await proxy_manager.stop()
+    await duckdns.stop_all()
 
 
 TUNNEL_ALLOWED_PATHS = {
@@ -566,6 +646,10 @@ def create_app() -> web.Application:
 
     # HA integration
     app.router.add_post("/api/inject-credentials", api_inject_credentials)
+
+    # DuckDNS
+    app.router.add_post("/api/duckdns/verify", api_duckdns_verify)
+    app.router.add_post("/api/duckdns/setup", api_duckdns_setup)
 
     # Proxy management
     app.router.add_get("/api/proxy/status", api_proxy_status)

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-03-09
+
+### Added
+
+- **DuckDNS support** — stable permanent domain that persists across add-on
+  restarts. Cloudflare quick tunnels are ephemeral and Tesla revokes the vehicle
+  key when the endpoint becomes unreachable. DuckDNS provides a free, stable
+  `subdomain.duckdns.org` hostname
+- Automatic Let's Encrypt certificate via DNS-01 challenge (no port 80 needed,
+  uses DuckDNS API for DNS verification)
+- HTTPS server on port 443 serving `.well-known/appkeys` with valid TLS
+- DuckDNS IP updater runs every 5 minutes in the background
+- Certificate auto-renewal check every 12 hours
+- Step 2 now offers two options: DuckDNS (recommended) or Cloudflare Quick
+  Tunnel (temporary)
+- Port 443 added to config.yaml for DuckDNS HTTPS
+- `certbot` added to Docker image for Let's Encrypt
+
+### Changed
+
+- Cloudflare tunnel marked as "TEMPORARY" in the wizard with a warning about
+  key revocation
+- DuckDNS state (`duckdns_subdomain`, `duckdns_token`) persisted across restarts
+- On startup, DuckDNS takes priority over tunnel — if configured, tunnel is
+  not started
+
 ## [0.5.5] - 2026-03-09
 
 ### Fixed
