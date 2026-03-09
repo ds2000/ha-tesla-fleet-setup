@@ -49,7 +49,8 @@ integrations can send secure vehicle commands.
 - **Auto-inject HA credentials** -- your Client ID and Client Secret are automatically saved to HA's Application Credentials store via WebSocket API, so the Tesla Fleet integration picks them up with zero re-entry
 - **Works with multiple integrations** -- the signing proxy is compatible with the built-in Tesla Fleet integration, tesla_custom_component (alandtse/tesla), and any integration that supports the Fleet API proxy protocol
 - **API testing dashboard** -- after setup, test vehicle data, commands, and connectivity directly from the add-on UI
-- **Cloudflare tunnel** -- free temporary tunnel for public key hosting during setup (no account needed, shuts down after)
+- **Cloudflare tunnel** -- free temporary tunnel for public key hosting during setup (no account needed); stays running so HA can verify the domain
+- **Survives restarts** -- tunnel, proxy, and domain display all recover automatically after add-on or HA reboots
 
 ## Installation
 

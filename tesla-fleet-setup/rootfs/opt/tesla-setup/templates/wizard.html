@@ -1043,10 +1043,10 @@
       try {
         const resp = await fetch(`api/status`);
         const data = await resp.json();
+        publicKeyUrl = data.public_key_url || '';
         if (data.has_tokens) {
           showComplete();
         } else if (data.step) {
-          publicKeyUrl = data.public_key_url || '';
           urlMethod = data.url_method || '';
           if (data.step >= 2 && publicKeyUrl) {
             updateUrlDisplay();
