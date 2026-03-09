@@ -64,27 +64,13 @@ if DEMO_MODE:
         }
     ha_discovery.get_ha_info = _mock_ha_info
 
-    # 2. Mock tunnel — return localhost URL
-    class MockTunnel:
-        url = None
-        running = False
-        async def start(self, port):
-            await asyncio.sleep(2)
-            self.url = f"http://localhost:{port}"
-            self.running = True
-            return self.url
-        async def stop(self):
-            self.running = False
-            self.url = None
-    server.tunnel_manager = MockTunnel()
-
-    # 3. Mock partner registration — always succeed after delay
+    # 2. Mock partner registration — always succeed after delay
     async def _mock_register(client_id, client_secret, domain):
         await asyncio.sleep(1.5)
         return {"success": True, "data": {"account_id": "demo-partner-123"}}
     tesla_api.register_partner = _mock_register
 
-    # 4. Mock token exchange — always succeed
+    # 3. Mock token exchange — always succeed
     async def _mock_exchange(client_id, client_secret, code, redirect_uri):
         return {
             "success": True,
@@ -97,7 +83,7 @@ if DEMO_MODE:
         }
     tesla_api.exchange_code = _mock_exchange
 
-    # 5. Mock OAuth URL — go straight to our own callback with a fake code
+    # 4. Mock OAuth URL — go straight to our own callback with a fake code
     def _mock_get_oauth_url(client_id, redirect_uri, state):
         return f"http://localhost:{PORT}/oauth/callback?code=demo-auth-code&state={state}"
     tesla_api.get_oauth_url = _mock_get_oauth_url

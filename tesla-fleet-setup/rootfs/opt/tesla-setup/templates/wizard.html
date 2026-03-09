@@ -541,105 +541,114 @@
       </div>
     </div>
 
-    <!-- ====== STEP 2: Expose Public Key ====== -->
+    <!-- ====== STEP 2: Set Up Domain via DuckDNS ====== -->
     <div class="step-card" id="step-2">
-      <h2>Make Your Public Key Reachable</h2>
+      <h2>Set Up Your Domain</h2>
       <p class="subtitle">
-        Tesla's servers need to download your public key over the internet.
-        Choose how you'd like to expose it.
+        Tesla needs a permanent URL to verify your public key. We'll use
+        <a href="https://www.duckdns.org" target="_blank" style="color:var(--blue)">DuckDNS</a>
+        (free) to give you a stable domain with automatic HTTPS.
       </p>
 
-      <!-- Method selection -->
-      <div id="url-method-select" style="display:none">
+      <!-- DuckDNS step-by-step setup -->
+      <div id="duckdns-setup" style="display:none">
 
-        <!-- DuckDNS (recommended) -->
+        <!-- Step 1: Sign in -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <span style="font-size:1.1rem;font-weight:600">DuckDNS</span>
-            <span style="background:var(--success);color:#000;padding:2px 8px;border-radius:8px;font-size:0.7rem;font-weight:600">RECOMMENDED</span>
+            <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">1</span>
+            <span style="font-weight:600">Sign in to DuckDNS</span>
+          </div>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
+            Open <a href="https://www.duckdns.org" target="_blank" style="color:var(--blue)">duckdns.org</a>
+            and sign in with your Google, GitHub, Twitter, or Reddit account.
+          </p>
+          <img src="static/screenshots/duckdns-signin.png" alt="DuckDNS sign in page"
+               style="width:100%;border-radius:8px;border:1px solid var(--border);margin-top:4px"
+               onerror="this.style.display='none'">
+        </div>
+
+        <!-- Step 2: Create subdomain -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">2</span>
+            <span style="font-weight:600">Create this subdomain</span>
+          </div>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
+            Type the name below into the "sub domain" field on DuckDNS and click
+            <strong>add domain</strong>.
+          </p>
+          <div class="copy-field">
+            <span class="field-label">Subdomain to create</span>
+            <span class="field-value" id="suggested-subdomain-value"></span>
+            <button class="btn-copy" onclick="copyText(this, 'suggested-subdomain-value')">Copy</button>
+          </div>
+          <p style="color:var(--text-muted);font-size:0.8rem;margin-top:6px">
+            Already have a DuckDNS subdomain? Change it here:
+          </p>
+          <div style="display:flex;align-items:center;gap:0;margin-top:4px">
+            <input type="text" id="duckdns-subdomain"
+                   class="input" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none">
+            <span style="background:var(--surface);border:1px solid var(--border);padding:8px 12px;font-size:0.9rem;color:var(--text-muted);border-radius:0 var(--radius) var(--radius) 0">.duckdns.org</span>
+          </div>
+          <img src="static/screenshots/duckdns-add-domain.png" alt="DuckDNS add domain"
+               style="width:100%;border-radius:8px;border:1px solid var(--border);margin-top:8px"
+               onerror="this.style.display='none'">
+        </div>
+
+        <!-- Step 3: Copy token -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">3</span>
+            <span style="font-weight:600">Copy your token</span>
+          </div>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
+            Your token is shown at the top of the DuckDNS dashboard page. Copy it and paste it below.
+          </p>
+          <label style="font-size:0.85rem;color:var(--text-muted)">
+            DuckDNS Token
+            <input type="password" id="duckdns-token" placeholder="Paste your DuckDNS token here"
+                   class="input" style="margin-top:4px">
+          </label>
+          <img src="static/screenshots/duckdns-token.png" alt="DuckDNS token location"
+               style="width:100%;border-radius:8px;border:1px solid var(--border);margin-top:8px"
+               onerror="this.style.display='none'">
+        </div>
+
+        <!-- Step 4: Activate -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">4</span>
+            <span style="font-weight:600">Activate</span>
           </div>
           <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:12px">
-            Free stable domain that persists across restarts. Requires a free
-            <a href="https://www.duckdns.org" target="_blank" style="color:var(--blue)">duckdns.org</a>
-            account and a port forward (443) on your router.
+            Click below and we'll handle the rest &mdash; port forwarding (UPnP), IP update,
+            HTTPS certificate, and start serving your public key.
           </p>
-
-          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-            <label style="font-size:0.85rem;color:var(--text-muted)">
-              Subdomain
-              <div style="display:flex;align-items:center;gap:0;margin-top:4px">
-                <input type="text" id="duckdns-subdomain" placeholder="mytesla"
-                       class="input" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none">
-                <span style="background:var(--surface);border:1px solid var(--border);padding:8px 12px;font-size:0.9rem;color:var(--text-muted);border-radius:0 var(--radius) var(--radius) 0">.duckdns.org</span>
-              </div>
-            </label>
-            <label style="font-size:0.85rem;color:var(--text-muted)">
-              Token
-              <input type="password" id="duckdns-token" placeholder="Your DuckDNS token"
-                     class="input" style="margin-top:4px">
-            </label>
-          </div>
 
           <div class="btn-row">
             <button class="btn btn-primary" onclick="setupDuckDNS()" id="duckdns-btn">
-              <span id="duckdns-btn-text">Set Up DuckDNS</span>
+              <span id="duckdns-btn-text">Activate DuckDNS</span>
             </button>
           </div>
           <p id="duckdns-status" style="display:none;margin-top:8px;font-size:0.85rem"></p>
-
-          <details style="margin-top:8px">
-            <summary>How to set up DuckDNS</summary>
-            <div class="details-content">
-              <p><strong>1.</strong> Go to <a href="https://www.duckdns.org" target="_blank" style="color:var(--blue)">duckdns.org</a>
-                 and sign in with Google, GitHub, or another provider.</p>
-              <p><strong>2.</strong> Create a subdomain (e.g. <code>mytesla</code>).</p>
-              <p><strong>3.</strong> Copy your token from the DuckDNS dashboard.</p>
-              <p><strong>4.</strong> On your router, forward <strong>port 443</strong> (external)
-                 to <strong>port 443</strong> on your Home Assistant machine's IP.</p>
-              <p><strong>5.</strong> Enter the subdomain and token above and click "Set Up DuckDNS".</p>
-              <p>We'll automatically update the IP, get a free Let's Encrypt certificate, and
-                 serve your public key at <code>https://your-name.duckdns.org</code>.</p>
-            </div>
-          </details>
-        </div>
-
-        <!-- Cloudflare Quick Tunnel (temporary) -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <span style="font-size:1.1rem;font-weight:600">Cloudflare Quick Tunnel</span>
-            <span style="background:var(--warning);color:#000;padding:2px 8px;border-radius:8px;font-size:0.7rem;font-weight:600">TEMPORARY</span>
-          </div>
-          <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:12px">
-            One-click setup, no account needed. Good for testing but the hostname changes on
-            every restart and Tesla will <strong>revoke your key</strong> when it becomes unreachable.
-          </p>
-          <div class="btn-row">
-            <button class="btn btn-secondary" onclick="startTunnel()" id="tunnel-btn">
-              <span id="tunnel-btn-text">Create Temporary Tunnel</span>
-            </button>
-          </div>
         </div>
       </div>
 
       <!-- URL is ready -->
       <div id="url-ready" style="display:none">
         <div class="copy-field">
-          <span class="field-label">Your URL</span>
+          <span class="field-label">Your Domain</span>
           <span class="field-value" id="public-url-value"></span>
           <button class="btn-copy" onclick="copyText(this, 'public-url-value')">Copy</button>
         </div>
 
-        <div id="duckdns-note" style="display:none">
-          <div class="info-box success">
-            Using DuckDNS — your domain is stable and will persist across restarts.
-          </div>
+        <div class="info-box success">
+          DuckDNS is active &mdash; your domain is stable and will persist across restarts.
+          Port forwarding and HTTPS certificates are automatically maintained.
         </div>
-        <div id="tunnel-warning" style="display:none">
-          <div class="info-box warning">
-            Using a temporary tunnel — the hostname will change if the add-on restarts
-            and Tesla may revoke your key. Consider switching to DuckDNS for a permanent setup.
-          </div>
-        </div>
+
+        <p id="upnp-warning" class="info-box warning" style="display:none"></p>
 
         <div class="status-row" id="verify-status">
           <div class="status-icon pending" id="verify-icon">?</div>
@@ -654,10 +663,11 @@
         <details>
           <summary>Troubleshooting: test fails?</summary>
           <div class="details-content">
-            <p><strong>Using DuckDNS?</strong> Make sure port 443 is forwarded from your router
-               to your Home Assistant machine. It can take a minute for DNS to propagate.</p>
-            <p><strong>Using the tunnel?</strong> It may take 10-15 seconds to become reachable.
-               Try clicking "Test Reachability" again.</p>
+            <p>Port 443 should be auto-forwarded via UPnP. If your router doesn't
+               support UPnP, manually forward <strong>port 443</strong> (TCP) to your
+               Home Assistant machine's IP address.</p>
+            <p>DNS changes can take a minute to propagate &mdash; try the test again
+               after a short wait.</p>
           </div>
         </details>
       </div>
@@ -857,11 +867,6 @@
         After you log in and approve access, you'll be redirected back here automatically.
       </div>
 
-      <div class="info-box warning" id="tunnel-warning" style="display:none">
-        <strong>Important:</strong> If you're using the temporary tunnel, do not close this
-        browser tab or stop the add-on until the sign-in is complete.
-      </div>
-
       <div class="btn-row">
         <button class="btn btn-secondary" onclick="goToStep(4)">Back</button>
         <button class="btn btn-primary" onclick="startOAuth()">Sign in with Tesla</button>
@@ -1050,7 +1055,7 @@
           if (data.step >= 2 && publicKeyUrl) {
             updateUrlDisplay();
           } else if (data.step >= 2) {
-            document.getElementById('url-method-select').style.display = 'block';
+            showDuckDNSSetup();
           }
           // Restore DuckDNS fields if previously configured
           if (data.duckdns_subdomain) {
@@ -1079,7 +1084,6 @@
         else if (s < step) el.classList.add('complete');
       });
 
-      // tunnel-warning is now shown inline in step 2 via updateUrlDisplay()
     }
 
     function showComplete() {
@@ -1286,8 +1290,7 @@
         urlMethod = data.url_method || '';
 
         goToStep(2);
-        // Show method selection (DuckDNS or Cloudflare tunnel)
-        document.getElementById('url-method-select').style.display = 'block';
+        showDuckDNSSetup();
       } catch (e) {
         btn.textContent = 'Generate Keys';
         btn.disabled = false;
@@ -1296,6 +1299,30 @@
     }
 
     // --- Step 2: DuckDNS ---
+    function generateSubdomain() {
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      let suffix = '';
+      for (let i = 0; i < 4; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
+      return 'ha-tesla-' + suffix;
+    }
+
+    function showDuckDNSSetup() {
+      const setup = document.getElementById('duckdns-setup');
+      setup.style.display = 'block';
+      const subInput = document.getElementById('duckdns-subdomain');
+      if (!subInput.value) {
+        const suggested = generateSubdomain();
+        subInput.value = suggested;
+        document.getElementById('suggested-subdomain-value').textContent = suggested;
+      } else {
+        document.getElementById('suggested-subdomain-value').textContent = subInput.value;
+      }
+      // Keep suggested value in sync when user edits
+      subInput.addEventListener('input', () => {
+        document.getElementById('suggested-subdomain-value').textContent = subInput.value || generateSubdomain();
+      });
+    }
+
     async function setupDuckDNS() {
       const btn = document.getElementById('duckdns-btn');
       const text = document.getElementById('duckdns-btn-text');
@@ -1324,12 +1351,12 @@
           body: JSON.stringify({ subdomain, token }),
         });
         let data = await resp.json();
-        if (!data.success) throw new Error(data.error || 'Invalid credentials');
+        if (!data.success) throw new Error(data.error || 'Invalid credentials — make sure you created the subdomain on DuckDNS first');
 
-        status.textContent = 'Updating IP and requesting certificate (this takes ~60 seconds)...';
-        text.innerHTML = '<span class="spinner"></span> Getting certificate...';
+        status.textContent = 'Opening port via UPnP, updating IP, and requesting certificate (~60 seconds)...';
+        text.innerHTML = '<span class="spinner"></span> Setting up...';
 
-        // Full setup: IP update + cert + HTTPS server
+        // Full setup: UPnP + IP update + cert + HTTPS server
         resp = await fetch('api/duckdns/setup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1340,9 +1367,17 @@
 
         publicKeyUrl = data.url;
         urlMethod = 'duckdns';
-        document.getElementById('url-method-select').style.display = 'none';
+        document.getElementById('duckdns-setup').style.display = 'none';
         updateUrlDisplay();
-        status.style.display = 'none';
+
+        // Show UPnP result as warning if it failed
+        if (data.upnp && !data.upnp.success) {
+          const warn = document.getElementById('upnp-warning');
+          if (warn) {
+            warn.textContent = 'Port 443 could not be auto-forwarded (' + (data.upnp.error || 'UPnP unavailable') + '). Please forward port 443 on your router to your Home Assistant IP.';
+            warn.style.display = 'block';
+          }
+        }
       } catch (e) {
         text.textContent = 'Retry';
         btn.disabled = false;
@@ -1351,37 +1386,11 @@
       }
     }
 
-    // --- Step 2: Tunnel ---
-    async function startTunnel() {
-      const btn = document.getElementById('tunnel-btn');
-      const text = document.getElementById('tunnel-btn-text');
-      btn.disabled = true;
-      text.innerHTML = '<span class="spinner"></span> Creating tunnel (up to 30 seconds)...';
-
-      try {
-        const resp = await fetch(`api/start-tunnel`, { method: 'POST' });
-        const data = await resp.json();
-        if (data.error) throw new Error(data.error);
-
-        publicKeyUrl = data.url;
-        urlMethod = 'tunnel';
-        document.getElementById('url-method-select').style.display = 'none';
-        updateUrlDisplay();
-      } catch (e) {
-        text.textContent = 'Retry';
-        btn.disabled = false;
-        alert('Failed to create tunnel: ' + e.message + '\n\nMake sure the add-on has internet access.');
-      }
-    }
-
     function updateUrlDisplay() {
       document.getElementById('url-ready').style.display = 'block';
       document.getElementById('public-url-value').textContent = publicKeyUrl;
       document.getElementById('origin-value').textContent = publicKeyUrl;
       document.getElementById('redirect-value').textContent = publicKeyUrl + '/oauth/callback';
-      // Show appropriate note
-      document.getElementById('duckdns-note').style.display = urlMethod === 'duckdns' ? 'block' : 'none';
-      document.getElementById('tunnel-warning').style.display = urlMethod === 'tunnel' ? 'block' : 'none';
     }
 
     async function verifyUrl() {

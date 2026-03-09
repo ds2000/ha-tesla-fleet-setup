@@ -52,10 +52,9 @@ class TestInjectEndpoint:
             data = await resp.json()
             assert data["success"] is False
 
-    async def test_blocked_via_tunnel(self, client):
-        resp = await client.post("/api/inject-credentials",
-                                 headers={"Host": "test.trycloudflare.com"})
-        assert resp.status == 404
+    async def test_inject_requires_post(self, client):
+        resp = await client.get("/api/inject-credentials")
+        assert resp.status == 405
 
 
 class TestStatusIncludesCredentialState:

@@ -61,60 +61,6 @@ class TestCredentialExposure:
         assert "truncated" in result
 
 
-class TestTunnelIsolation:
-    """Ensure tunnel only exposes intended endpoints."""
-
-    TUNNEL_HOST = {"Host": "malicious.trycloudflare.com"}
-
-    async def test_blocks_wizard_page_via_tunnel(self, client):
-        resp = await client.get("/", headers=self.TUNNEL_HOST)
-        assert resp.status == 404
-
-    async def test_blocks_api_status_via_tunnel(self, client):
-        resp = await client.get("/api/status", headers=self.TUNNEL_HOST)
-        assert resp.status == 404
-
-    async def test_blocks_api_generate_keys_via_tunnel(self, client):
-        resp = await client.post("/api/generate-keys", headers=self.TUNNEL_HOST)
-        assert resp.status == 404
-
-    async def test_blocks_api_save_credentials_via_tunnel(self, client):
-        resp = await client.post("/api/save-credentials", headers=self.TUNNEL_HOST, json={})
-        assert resp.status == 404
-
-    async def test_blocks_api_register_partner_via_tunnel(self, client):
-        resp = await client.post("/api/register-partner", headers=self.TUNNEL_HOST)
-        assert resp.status == 404
-
-    async def test_blocks_api_vehicles_via_tunnel(self, client):
-        resp = await client.get("/api/vehicles", headers=self.TUNNEL_HOST)
-        assert resp.status == 404
-
-    async def test_blocks_api_reset_via_tunnel(self, client):
-        resp = await client.post("/api/reset", headers=self.TUNNEL_HOST)
-        assert resp.status == 404
-
-    async def test_blocks_api_proxy_via_tunnel(self, client):
-        resp = await client.get("/api/proxy/status", headers=self.TUNNEL_HOST)
-        assert resp.status == 404
-
-    async def test_blocks_static_via_tunnel(self, client):
-        resp = await client.get("/static/style.css", headers=self.TUNNEL_HOST)
-        assert resp.status == 404
-
-    async def test_allows_well_known_via_tunnel(self, client):
-        resp = await client.get(
-            "/.well-known/appspecific/com.tesla.3p.public-key.pem",
-            headers=self.TUNNEL_HOST,
-        )
-        assert resp.status == 200
-
-    async def test_allows_oauth_callback_via_tunnel(self, client):
-        resp = await client.get("/oauth/callback", headers=self.TUNNEL_HOST)
-        # 400 = handler reached (missing code), not 404
-        assert resp.status == 400
-
-
 class TestOAuthSecurity:
     """Test OAuth flow security measures."""
 
@@ -283,19 +229,6 @@ class TestTLSCertSecurity:
 class TestProxySecurity:
     """Test proxy-related security measures."""
 
-    async def test_proxy_endpoints_blocked_via_tunnel(self, client):
-        tunnel_host = {"Host": "test.trycloudflare.com"}
-        for path in ["/api/proxy/status", "/api/proxy/start", "/api/proxy/stop"]:
-            method = client.get if "status" in path else client.post
-            resp = await method(path, headers=tunnel_host)
-            assert resp.status == 404, f"{path} should be blocked via tunnel"
-
-    async def test_command_endpoints_blocked_via_tunnel(self, client):
-        tunnel_host = {"Host": "test.trycloudflare.com"}
-        resp = await client.post("/api/vehicles/123/command/door_lock", headers=tunnel_host)
-        assert resp.status == 404
-
-    async def test_vehicle_data_blocked_via_tunnel(self, client):
-        tunnel_host = {"Host": "test.trycloudflare.com"}
-        resp = await client.get("/api/vehicles/123/data", headers=tunnel_host)
-        assert resp.status == 404
+    async def test_proxy_status_accessible(self, client):
+        resp = await client.get("/api/proxy/status")
+        assert resp.status == 200

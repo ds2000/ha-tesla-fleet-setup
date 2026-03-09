@@ -17,7 +17,6 @@ import ha_discovery
 import keygen
 import proxy
 import tesla_api
-import tunnel
 from aiohttp import web
 
 # --- Logging setup: suppress credential leaks ---
@@ -57,14 +56,13 @@ def install_key_to_ha():
         return False
 
 
-tunnel_manager = tunnel.TunnelManager()
 proxy_manager = proxy.ProxyManager()
 
 # In-memory state (persisted to /data/state.json)
 state = {
     "step": 1,
     "public_key_url": None,
-    "url_method": None,  # "nabu_casa", "external_url", "tunnel"
+    "url_method": None,  # "duckdns", "manual"
     "client_id": None,
     "client_secret": None,
     "partner_registered": False,
@@ -94,7 +92,7 @@ def save_state():
     os.chmod(STATE_PATH, 0o600)
 
 
-# --- .well-known endpoint (served on all paths for tunnel) ---
+# --- .well-known endpoint ---
 
 async def well_known_appkeys(request):
     """Serve the public key at Tesla's expected .well-known path."""
@@ -130,11 +128,6 @@ async def api_generate_keys(request):
 
     result = {"public_key": public_pem, "ha_info": ha_info}
 
-    # Always use tunnel — Nabu Casa and external URLs point to HA Core,
-    # which doesn't serve /.well-known/appspecific/com.tesla.3p.public-key.pem. Only our add-on does,
-    # so we need a direct tunnel to port 8099.
-    # The tunnel is temporary and only needed during setup.
-
     state["step"] = max(state["step"], 2)
     save_state()
 
@@ -156,33 +149,17 @@ async def api_set_url(request):
     return web.json_response({"url": url})
 
 
-async def api_start_tunnel(request):
-    """Start a Cloudflare quick tunnel."""
-    try:
-        url = await tunnel_manager.start(PORT)
-        state["public_key_url"] = url
-        state["url_method"] = "tunnel"
-        save_state()
-        return web.json_response({"url": url})
-    except Exception as e:
-        return web.json_response({"error": str(e)}, status=500)
-
-
 async def api_verify_url(request):
     """Self-test: verify .well-known/appkeys is being served.
 
-    For tunnel URLs, test localhost directly (container can't resolve its
-    own tunnel hostname). For external URLs, test via the public URL.
+    For DuckDNS URLs, test the local HTTPS server on port 443 (container
+    can't resolve its own DuckDNS hostname from inside).
     """
     url = state.get("public_key_url")
     if not url:
         return web.json_response({"error": "No public URL configured"}, status=400)
 
-    # For tunnel/DuckDNS URLs, test localhost — the container can't resolve
-    # its own tunnel hostname or DuckDNS domain from inside.
-    if ".trycloudflare.com" in url:
-        test_url = f"http://localhost:{PORT}/.well-known/appspecific/com.tesla.3p.public-key.pem"
-    elif state.get("url_method") == "duckdns":
+    if state.get("url_method") == "duckdns":
         # DuckDNS: test the local HTTPS server on port 443
         test_url = f"https://localhost:{duckdns.HTTPS_PORT}/.well-known/appspecific/com.tesla.3p.public-key.pem"
     else:
@@ -473,19 +450,22 @@ async def api_duckdns_setup(request):
     if not ip_ok:
         return web.json_response({"success": False, "error": "DuckDNS IP update failed — check token"}, status=400)
 
-    # 2. Obtain Let's Encrypt certificate
+    # 2. Try UPnP to auto-forward port 443
+    upnp_result = await duckdns.open_port_upnp()
+
+    # 3. Obtain Let's Encrypt certificate
     cert_result = await duckdns.obtain_cert(subdomain, token)
     if not cert_result["success"]:
         return web.json_response(cert_result, status=500)
 
-    # 3. Start HTTPS server + IP updater
+    # 4. Start HTTPS server + IP updater
     https_ok = await duckdns.start_https_server()
     if not https_ok:
         return web.json_response({"success": False, "error": "Failed to start HTTPS server"}, status=500)
     duckdns.start_updater(subdomain, token)
     duckdns.start_renewal_checker(subdomain, token)
 
-    # 4. Save state
+    # 5. Save state
     domain = f"{subdomain}.duckdns.org"
     public_url = f"https://{domain}"
     state["duckdns_subdomain"] = subdomain
@@ -494,13 +474,13 @@ async def api_duckdns_setup(request):
     state["url_method"] = "duckdns"
     save_state()
 
-    # Stop Cloudflare tunnel if running (no longer needed)
-    if tunnel_manager.running:
-        await tunnel_manager.stop()
-        logger.info("Stopped Cloudflare tunnel — using DuckDNS now")
-
     logger.info("DuckDNS configured: %s (HTTPS serving .well-known)", domain)
-    return web.json_response({"success": True, "url": public_url, "domain": domain})
+    return web.json_response({
+        "success": True,
+        "url": public_url,
+        "domain": domain,
+        "upnp": upnp_result,
+    })
 
 
 async def api_reset(request):
@@ -519,7 +499,6 @@ async def api_reset(request):
         "duckdns_token": None,
     }
     save_state()
-    await tunnel_manager.stop()
     await proxy_manager.stop()
     await duckdns.stop_all()
     logger.info("Wizard state reset")
@@ -556,7 +535,7 @@ async def on_startup(app):
     if state.get("tokens") and not HA_CONFIG_KEY.exists():
         install_key_to_ha()
 
-    # Auto-start DuckDNS if configured (stable domain, replaces tunnel)
+    # Auto-start DuckDNS if configured (stable domain for Tesla key verification)
     if state.get("duckdns_subdomain") and state.get("duckdns_token"):
         subdomain = state["duckdns_subdomain"]
         token = state["duckdns_token"]
@@ -565,24 +544,6 @@ async def on_startup(app):
             logger.info("DuckDNS active: %s.duckdns.org (HTTPS + IP updater)", subdomain)
         except Exception as e:
             logger.warning("DuckDNS startup failed: %s", e)
-
-    # Auto-restart tunnel if setup used a tunnel (HA integration needs it for domain verification)
-    elif state.get("tokens") and state.get("url_method") == "tunnel":
-        try:
-            url = await tunnel_manager.start(PORT)
-            old_url = state.get("public_key_url")
-            if url != old_url:
-                logger.warning(
-                    "Tunnel restarted with NEW URL: %s (was %s). "
-                    "You may need to re-register with Tesla if the domain changed.",
-                    url, old_url,
-                )
-                state["public_key_url"] = url
-                save_state()
-            else:
-                logger.info("Tunnel restarted: %s", url)
-        except Exception as e:
-            logger.warning("Failed to restart tunnel: %s", e)
 
     # Auto-start proxy if setup was previously completed
     if state.get("tokens") and proxy.proxy_available():
@@ -595,37 +556,16 @@ async def on_startup(app):
 
 
 async def on_shutdown(app):
-    """Clean up tunnel, proxy, and DuckDNS on shutdown."""
-    await tunnel_manager.stop()
+    """Clean up proxy and DuckDNS on shutdown."""
     await proxy_manager.stop()
     await duckdns.stop_all()
 
 
-TUNNEL_ALLOWED_PATHS = {
-    "/.well-known/appspecific/com.tesla.3p.public-key.pem",
-    "/oauth/callback",
-}
-
-
-@web.middleware
-async def tunnel_guard(request, handler):
-    """Block non-allowed paths when accessed through the Cloudflare tunnel.
-
-    Only /.well-known/appspecific/com.tesla.3p.public-key.pem and /oauth/callback are exposed to the internet.
-    All other paths (wizard UI, API endpoints) return 404 when accessed via tunnel.
-    """
-    host = request.headers.get("Host", "")
-    if ".trycloudflare.com" in host and request.path not in TUNNEL_ALLOWED_PATHS:
-        raise web.HTTPNotFound()
-    return await handler(request)
-
-
 def create_app() -> web.Application:
-    app = web.Application(middlewares=[tunnel_guard])
+    app = web.Application()
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
 
-    # .well-known must be at the root (for tunnel/direct access)
     # Tesla fetches: /.well-known/appspecific/com.tesla.3p.public-key.pem
     app.router.add_get("/.well-known/appspecific/com.tesla.3p.public-key.pem", well_known_appkeys)
 
@@ -637,7 +577,6 @@ def create_app() -> web.Application:
     app.router.add_get("/api/status", api_status)
     app.router.add_post("/api/generate-keys", api_generate_keys)
     app.router.add_post("/api/set-url", api_set_url)
-    app.router.add_post("/api/start-tunnel", api_start_tunnel)
     app.router.add_post("/api/verify-url", api_verify_url)
     app.router.add_post("/api/save-credentials", api_save_credentials)
     app.router.add_post("/api/register-partner", api_register_partner)

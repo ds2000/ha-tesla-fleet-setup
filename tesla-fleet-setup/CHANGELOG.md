@@ -9,27 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **DuckDNS support** — stable permanent domain that persists across add-on
-  restarts. Cloudflare quick tunnels are ephemeral and Tesla revokes the vehicle
-  key when the endpoint becomes unreachable. DuckDNS provides a free, stable
-  `subdomain.duckdns.org` hostname
+- **DuckDNS integration** — stable permanent domain (`subdomain.duckdns.org`)
+  that persists across add-on restarts. Tesla periodically verifies
+  `.well-known/appkeys` and revokes the vehicle key when the endpoint is
+  unreachable — a stable domain is essential
+- **Step-by-step DuckDNS guide** in the wizard with screenshots, auto-generated
+  subdomain suggestion with copy button, and inline instructions
 - Automatic Let's Encrypt certificate via DNS-01 challenge (no port 80 needed,
   uses DuckDNS API for DNS verification)
 - HTTPS server on port 443 serving `.well-known/appkeys` with valid TLS
 - DuckDNS IP updater runs every 5 minutes in the background
 - Certificate auto-renewal check every 12 hours
-- Step 2 now offers two options: DuckDNS (recommended) or Cloudflare Quick
-  Tunnel (temporary)
+- **UPnP auto-port-forwarding** — port 443 is automatically opened on the
+  router via UPnP, no manual port forwarding needed on most routers. UPnP
+  mapping is refreshed every 5 minutes to prevent expiry. Falls back to manual
+  port forward with a clear message if UPnP is unavailable
 - Port 443 added to config.yaml for DuckDNS HTTPS
-- `certbot` added to Docker image for Let's Encrypt
+- `certbot` and `miniupnpc` added to Docker image
 
 ### Changed
 
-- Cloudflare tunnel marked as "TEMPORARY" in the wizard with a warning about
-  key revocation
 - DuckDNS state (`duckdns_subdomain`, `duckdns_token`) persisted across restarts
-- On startup, DuckDNS takes priority over tunnel — if configured, tunnel is
-  not started
+
+### Removed
+
+- **Cloudflare quick tunnel** — removed entirely. Quick tunnels generated
+  ephemeral hostnames that changed on every restart, causing Tesla to revoke
+  vehicle keys. DuckDNS replaces this with a stable, permanent domain
+- Tunnel guard middleware (no longer needed — port 8099 is only accessible
+  via HA ingress, port 443 only serves `.well-known`)
+- `cloudflared` binary removed from Docker image (smaller image size)
 
 ## [0.5.5] - 2026-03-09
 

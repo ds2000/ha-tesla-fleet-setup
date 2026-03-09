@@ -198,28 +198,6 @@ class TestWizardPage:
         assert "__VERSION__" not in body
 
 
-class TestTunnelGuard:
-    async def test_blocks_api_via_tunnel(self, client):
-        resp = await client.get("/api/status", headers={"Host": "abc.trycloudflare.com"})
-        assert resp.status == 404
-
-    async def test_allows_well_known_via_tunnel(self, client):
-        resp = await client.get(
-            "/.well-known/appspecific/com.tesla.3p.public-key.pem",
-            headers={"Host": "abc.trycloudflare.com"},
-        )
-        assert resp.status == 200
-
-    async def test_allows_oauth_callback_via_tunnel(self, client):
-        # Should reach handler (will fail with 400 due to missing code, not 404)
-        resp = await client.get("/oauth/callback", headers={"Host": "abc.trycloudflare.com"})
-        assert resp.status == 400  # Missing code, but not 404
-
-    async def test_allows_api_without_tunnel(self, client):
-        resp = await client.get("/api/status")
-        assert resp.status == 200
-
-
 class TestRegionDetection:
     async def test_status_includes_region(self, client):
         server.state["api_region"] = "https://fleet-api.prd.eu.vn.cloud.tesla.com"

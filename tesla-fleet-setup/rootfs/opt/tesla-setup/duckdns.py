@@ -38,6 +38,34 @@ _renewal_task = None
 _https_runner = None
 
 
+# ── UPnP port forwarding ─────────────────────────────────────────────────────
+
+async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
+    """Try to open a port on the router via UPnP. Returns {success, error?}."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "upnpc", "-r", str(port), "TCP",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
+        output = stdout.decode() + stderr.decode()
+
+        if proc.returncode == 0:
+            logger.info("UPnP: port %d forwarded successfully", port)
+            return {"success": True}
+
+        logger.warning("UPnP port forward failed (exit %d): %s", proc.returncode, output.strip()[:200])
+        return {"success": False, "error": output.strip()[:200]}
+    except asyncio.TimeoutError:
+        logger.warning("UPnP: timed out trying to open port %d", port)
+        return {"success": False, "error": "UPnP discovery timed out — router may not support UPnP"}
+    except FileNotFoundError:
+        return {"success": False, "error": "upnpc not installed"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # ── DuckDNS IP update ───────────────────────────────────────────────────────
 
 async def update_ip(subdomain: str, token: str) -> bool:
@@ -78,9 +106,14 @@ async def verify_token(subdomain: str, token: str) -> dict:
 
 
 async def _updater_loop(subdomain: str, token: str):
-    """Background loop updating DuckDNS IP every 5 minutes."""
+    """Background loop updating DuckDNS IP every 5 minutes.
+
+    Also refreshes the UPnP port mapping every cycle (mappings can expire).
+    """
     while True:
         await update_ip(subdomain, token)
+        # Silently refresh UPnP mapping (they expire on many routers)
+        await open_port_upnp()
         await asyncio.sleep(300)
 
 
@@ -270,7 +303,13 @@ def https_running() -> bool:
 # ── Lifecycle ────────────────────────────────────────────────────────────────
 
 async def start_all(subdomain: str, token: str):
-    """Start IP updater, HTTPS server, and renewal checker."""
+    """Start IP updater, HTTPS server, UPnP port forward, and renewal checker."""
+    # Try UPnP port forward (best effort — won't block if router doesn't support it)
+    upnp = await open_port_upnp()
+    if upnp["success"]:
+        logger.info("UPnP: port %d forwarded on startup", HTTPS_PORT)
+    else:
+        logger.info("UPnP unavailable on startup: %s (manual port forward needed)", upnp.get("error", "unknown"))
     start_updater(subdomain, token)
     await start_https_server()
     start_renewal_checker(subdomain, token)

@@ -89,7 +89,7 @@ def setup_complete_state(tmp_path):
     server.state.update({
         "step": 6,
         "public_key_url": "https://test.example.com",
-        "url_method": "tunnel",
+        "url_method": "duckdns",
         "client_id": "test-client-id",
         "client_secret": "test-client-secret",
         "partner_registered": True,

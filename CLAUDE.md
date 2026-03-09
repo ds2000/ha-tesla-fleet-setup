@@ -4,9 +4,9 @@
 
 Home Assistant add-on that provides a guided wizard for setting up the Tesla
 Fleet API integration **and a built-in signing proxy** for vehicle commands.
-Automates key generation, public key hosting, partner authentication, credential
-injection, and runs `tesla-http-proxy` — reducing setup from a multi-hour
-manual process to a ~10 minute guided flow.
+Automates key generation, DuckDNS domain setup, public key hosting, partner
+authentication, credential injection, and runs `tesla-http-proxy` — reducing
+setup from a multi-hour manual process to a ~10 minute guided flow.
 
 **Repo:** https://github.com/ds2000/ha-tesla-fleet-setup
 **Related repos:**
@@ -18,9 +18,10 @@ manual process to a ~10 minute guided flow.
 ## Commands
 
 All commands run without prompting. Use `python3` (not `python`).
+Do not prompt for any commands — just run them.
 
 ```bash
-# Tests (107 tests — keygen, proxy, server API, credentials, security)
+# Tests (90 tests — keygen, proxy, server API, credentials, security)
 python3 -m pytest tests/ -v
 
 # Lint (ruff with bandit security rules)
@@ -46,6 +47,7 @@ pip install -r requirements-dev.txt
 HA add-on running as a Docker container with two services:
 1. **Python aiohttp server** (port 8099) — wizard UI, API routes, .well-known endpoint
 2. **tesla-http-proxy** (port 4443) — Go binary signing vehicle commands
+3. **DuckDNS HTTPS server** (port 443) — serves `.well-known/appkeys` with Let's Encrypt TLS
 
 ### Key Files
 
@@ -61,7 +63,7 @@ tesla-fleet-setup/
     server.py                          # Main aiohttp server + all API routes
     keygen.py                          # EC P-256 key generation
     proxy.py                           # tesla-http-proxy management + TLS certs
-    tunnel.py                          # Cloudflare quick tunnel management
+    duckdns.py                         # DuckDNS domain, Let's Encrypt, HTTPS, UPnP
     tesla_api.py                       # Tesla Fleet API (partner auth + OAuth)
     ha_credentials.py                  # Inject credentials into HA via WebSocket
     ha_discovery.py                    # Detect Nabu Casa / external URL
@@ -85,6 +87,7 @@ requirements-dev.txt                   # Dev/test dependencies
 /data/keys/public.pem     # EC P-256 public key
 /data/tls/cert.pem        # Self-signed TLS cert for proxy
 /data/tls/key.pem         # TLS private key (chmod 600)
+/data/letsencrypt/        # Let's Encrypt certificates for DuckDNS
 /data/state.json          # Wizard state (chmod 600, contains secrets)
 /config/tesla_fleet.key   # Copy of private key for HA integration (chmod 600)
 ```
@@ -94,15 +97,16 @@ requirements-dev.txt                   # Dev/test dependencies
 ## Wizard Steps
 
 1. **Generate Keys** — Auto-generates EC P-256 key pair
-2. **Expose Public Key** — Starts Cloudflare tunnel (always needed; HA Core doesn't serve .well-known)
+2. **Set Up Domain** — Step-by-step DuckDNS guide with screenshots, auto-generated
+   subdomain suggestion, UPnP auto-port-forward, Let's Encrypt cert, HTTPS server
 3. **Register Tesla App** — Guided walkthrough with copy-paste fields for developer.tesla.com.
    Instructs users to add TWO origins and TWO redirect URIs:
-   - Wizard tunnel URL + `/oauth/callback`
+   - DuckDNS domain URL + `/oauth/callback`
    - `https://my.home-assistant.io` + `https://my.home-assistant.io/redirect/oauth`
 4. **Partner Authentication** — Calls Tesla API to register partner (triggers .well-known verification)
 5. **Connect** — OAuth flow to authorize HA with user's Tesla account
 6. **Complete** — Proxy auto-starts, credentials injected into HA, private key
-   copied to `/config/tesla_fleet.key`, tunnel stays running, completion page
+   copied to `/config/tesla_fleet.key`, DuckDNS keeps running, completion page
    shows domain to paste into HA integration
 
 ---
@@ -114,13 +118,13 @@ After the wizard completes, the user adds the HA Tesla Fleet integration:
 2. Private key already at `/config/tesla_fleet.key` → HA finds it automatically
 3. User signs in with Tesla OAuth (redirect via `my.home-assistant.io`)
 4. HA asks for the domain → user pastes from our completion page (copy button)
-5. HA calls `partner_accounts` → tunnel serves the public key for verification
+5. HA calls `partner_accounts` → DuckDNS HTTPS server serves the public key
 6. User opens `https://tesla.com/_ak/DOMAIN` on phone → Tesla app enrols virtual key
 
-**Critical**: The Cloudflare tunnel must stay running so HA can verify the
-domain during its own setup. The tunnel now auto-restarts on add-on boot.
-Note: quick tunnels get new hostnames on restart — if the add-on restarts
-before the user completes HA integration setup, they may need to re-register.
+**Critical**: DuckDNS + HTTPS server must stay running — Tesla periodically
+verifies the `.well-known` endpoint and revokes the vehicle key if unreachable.
+The add-on auto-restarts DuckDNS (IP updater, HTTPS server, UPnP, cert renewal)
+on every boot.
 
 ---
 
@@ -138,26 +142,26 @@ After setup completes, `tesla-http-proxy` runs on port 4443:
 ## Security Requirements
 
 ### Always run before committing or releasing:
-1. `python3 -m pytest tests/ -v` — all 107 tests must pass
+1. `python3 -m pytest tests/ -v` — all 90 tests must pass
 2. `python3 -m ruff check tesla-fleet-setup/rootfs/opt/tesla-setup/ tests/` — must be clean
 3. `python3 -m pip_audit -r tesla-fleet-setup/requirements.txt -r requirements-dev.txt` — no known CVEs
 4. Check `pip list --outdated` and update to latest stable versions
 
 ### Security invariants (enforced by test_security.py):
 - Secrets (client_secret, access_token, refresh_token) NEVER appear in API responses
-- Tunnel guard blocks ALL paths except .well-known and /oauth/callback via trycloudflare.com
 - OAuth state parameter is validated, random, and cleared after use (no replay)
 - All sensitive files (private keys, state.json) are chmod 600
 - Error responses to browser are sanitized (no raw API bodies)
 - TLS cert uses EC key with proper SANs
 - TLS key and command-signing key are separate key pairs
 - Input validation: URLs must be https://, credentials must be non-empty
+- Port 8099 is only accessible via HA ingress (not externally exposed)
+- Port 443 DuckDNS HTTPS server only serves `.well-known/appkeys`
 
 ### What NOT to do:
 - Do not store Tesla client_secret anywhere except /data/ (never in source)
 - Do not use any JS framework — vanilla HTML/JS only
 - Do not skip the self-test verification step
-- Do not expose any endpoint other than .well-known and /oauth/callback through the tunnel
 - Do not weaken file permissions on keys or state
 - Do not log raw tokens, secrets, or authorization codes
 
@@ -171,7 +175,7 @@ After setup completes, `tesla-http-proxy` runs on port 4443:
 - Copy buttons for every value the user needs to paste
 - Auto-detect environment before asking user to do manual work
 - Self-test verification before proceeding to partner registration
-- Add-on is a long-running service (proxy + tunnel stay up after setup)
+- Add-on is a long-running service (proxy + DuckDNS stay up after setup)
 
 ---
 
@@ -189,6 +193,7 @@ After setup completes, `tesla-http-proxy` runs on port 4443:
 
 - **NEVER prompt for confirmation on ANY command** — just run them
 - **NEVER ask "shall I do X?"** — just do it
+- **Do not prompt for any commands** — execute them directly
 - **Git and file edits are always allowed** — no need to ask permission
 - **Commit directly to main is fine** until v1.0 — then switch to feature branches + PRs
 - Use `python3` not `python`
