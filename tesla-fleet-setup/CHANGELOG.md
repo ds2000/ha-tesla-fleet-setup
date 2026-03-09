@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-03-09
+
+### Added
+
+- **Region dropdown** in Step 3 — users pick North America, Europe/Middle East/
+  Africa, or Asia-Pacific before entering credentials. Region is sent with
+  credentials and applied immediately so partner auth and all API calls use the
+  correct endpoint from the start
+- Region selection is restored when returning to Step 3
+
 ## [0.5.0] - 2026-03-09
 
 ### Added

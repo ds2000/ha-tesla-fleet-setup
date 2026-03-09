@@ -107,6 +107,17 @@ class TestSaveCredentials:
         })
         assert resp.status == 400
 
+    async def test_saves_region(self, client):
+        import tesla_api
+        resp = await client.post("/api/save-credentials", json={
+            "client_id": "test-id",
+            "client_secret": "test-secret",
+            "region": "https://fleet-api.prd.eu.vn.cloud.tesla.com",
+        })
+        assert resp.status == 200
+        assert server.state["api_region"] == "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+        assert tesla_api.get_api_base() == "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+
 
 class TestOAuthUrl:
     async def test_requires_credentials(self, client):

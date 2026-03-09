@@ -192,10 +192,11 @@ async def api_verify_url(request):
 
 
 async def api_save_credentials(request):
-    """Save Tesla app client_id and client_secret."""
+    """Save Tesla app client_id, client_secret, and region."""
     data = await request.json()
     client_id = data.get("client_id", "").strip()
     client_secret = data.get("client_secret", "").strip()
+    region = data.get("region", "").strip()
 
     if not client_id or not client_secret:
         return web.json_response({"error": "Both client_id and client_secret are required"}, status=400)
@@ -203,6 +204,13 @@ async def api_save_credentials(request):
     state["client_id"] = client_id
     state["client_secret"] = client_secret
     state["step"] = max(state["step"], 4)
+
+    # Set Fleet API region if provided
+    if region and region.startswith("https://"):
+        state["api_region"] = region
+        tesla_api.set_api_base(region)
+        logger.info("Fleet API region set to %s", region)
+
     save_state()
     logger.info("Credentials saved (client_id: %s...)", client_id[:8])
     return web.json_response({"success": True})

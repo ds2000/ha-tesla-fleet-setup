@@ -727,6 +727,15 @@
 
       <div style="margin-top: 20px">
         <div class="input-group">
+          <label for="input-region">Your Region</label>
+          <select id="input-region" style="width: 100%; padding: 10px 12px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem;">
+            <option value="https://fleet-api.prd.na.vn.cloud.tesla.com">North America</option>
+            <option value="https://fleet-api.prd.eu.vn.cloud.tesla.com">Europe / Middle East / Africa</option>
+            <option value="https://fleet-api.prd.na.vn.cloud.tesla.com">Asia-Pacific (Australia, Japan, Korea)</option>
+          </select>
+          <span class="tip" style="margin-top: 4px; display: block;">Choose where your Tesla account is registered. If unsure, this will be auto-detected after sign-in.</span>
+        </div>
+        <div class="input-group">
           <label for="input-client-id">Client ID</label>
           <input type="text" id="input-client-id" placeholder="Paste your Client ID here" autocomplete="off" spellcheck="false">
         </div>
@@ -960,6 +969,11 @@
         const resp = await fetch(`api/status`);
         const data = await resp.json();
         publicKeyUrl = data.public_key_url || '';
+        // Restore region dropdown if previously set
+        if (data.api_region) {
+          const regionSel = document.getElementById('input-region');
+          if (regionSel) regionSel.value = data.api_region;
+        }
         if (data.has_tokens) {
           showComplete();
         } else if (data.step) {
@@ -1256,11 +1270,13 @@
         return;
       }
 
+      const region = document.getElementById('input-region').value;
+
       try {
         const resp = await fetch(`api/save-credentials`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+          body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, region: region }),
         });
         const data = await resp.json();
         if (data.error) throw new Error(data.error);
