@@ -811,19 +811,16 @@
         <div class="checkmark">&#10003;</div>
         <h2>Setup Complete!</h2>
         <p style="margin-top: 12px; color: var(--text-muted)">
-          Your Tesla Fleet API integration is configured and ready to use.
+          Everything is configured. Just add the Tesla Fleet integration to Home Assistant.
         </p>
       </div>
 
-      <!-- Finish Setup in HA -->
+      <!-- Simple next steps -->
       <div style="text-align: left; margin-bottom: 24px;">
-        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">Finish Setup in Home Assistant</h2>
-        <p class="subtitle">Your credentials and private key have been automatically installed. Now add the Tesla Fleet integration.</p>
+        <h2 style="font-size: 1.15rem; margin-bottom: 12px;">Next Steps</h2>
 
-        <ol class="guide-steps" style="font-size: 0.9rem; margin-top: 12px;">
-          <li>Go to <strong>Settings &rarr; Devices &amp; Services &rarr; Add Integration</strong></li>
-          <li>Search for <strong>Tesla Fleet</strong> and click it</li>
-          <li>Your Client ID and Client Secret are already saved &mdash; just click through</li>
+        <ol class="guide-steps" style="font-size: 0.95rem; margin-top: 12px;">
+          <li>In Home Assistant, go to <strong>Settings &rarr; Devices &amp; Services &rarr; Add Integration</strong> and search for <strong>Tesla Fleet</strong></li>
           <li>Sign in with your Tesla account when prompted</li>
           <li>When asked for the <strong>domain</strong>, paste this:
             <div class="copy-row" style="margin-top: 8px;">
@@ -831,198 +828,117 @@
               <button class="btn-copy" onclick="copyText(this, 'ha-domain-value')">Copy</button>
             </div>
           </li>
-          <li>Tap your <strong>NFC key card</strong> on the vehicle's center console when prompted to enroll the key</li>
+          <li>Go to your car and <strong>tap your NFC key card</strong> on the centre console when prompted</li>
         </ol>
 
-        <div class="info-box warning" style="margin-top: 12px;">
-          <strong>Important:</strong> Keep this add-on running! It serves the public key that Tesla needs to verify
-          during integration setup, and runs the signing proxy for vehicle commands.
-        </div>
+        <p style="margin-top: 16px; font-size: 0.85rem; color: var(--text-muted);">
+          Your credentials and private key have already been saved &mdash; no need to enter them again.
+          Keep this add-on running so vehicle commands continue to work.
+        </p>
       </div>
 
-      <hr class="divider">
-
-      <!-- Signing Proxy Section -->
-      <div style="text-align: left; margin-bottom: 24px;">
-        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">Signing Proxy</h2>
-        <p class="subtitle">The signing proxy enables secure vehicle commands (lock, unlock, climate, etc.) for any Tesla integration.</p>
-
-        <div class="api-card" id="proxy-status-card" style="margin-top: 12px;">
+      <!-- Compact proxy + credentials status -->
+      <div style="text-align: left; margin-bottom: 16px;">
+        <div class="api-card" id="proxy-status-card" style="margin-bottom: 8px;">
           <div class="api-indicator" id="proxy-indicator"></div>
           <div class="api-info">
-            <div class="api-name">tesla-http-proxy</div>
+            <div class="api-name">Signing Proxy</div>
             <div class="api-desc" id="proxy-status-text">Checking...</div>
             <div class="api-result" id="proxy-url-display" style="display:none"></div>
           </div>
           <button class="btn-test" id="proxy-toggle-btn" onclick="toggleProxy()" style="min-width: 72px">Start</button>
         </div>
 
-        <div id="proxy-integration-info" style="display:none; margin-top: 16px;">
-          <div class="info-box info">
-            <strong>Proxy URL for integrations:</strong>
-            <div class="copy-row" style="margin-top: 8px;">
-              <code id="proxy-url-value" style="background: var(--bg); padding: 6px 12px; border-radius: 6px; flex: 1; font-size: 0.9rem; word-break: break-all;"></code>
-              <button class="btn-copy" onclick="copyText(this, 'proxy-url-value')">Copy</button>
-            </div>
-          </div>
-
-          <details style="margin-top: 12px;">
-            <summary style="cursor:pointer; color: var(--accent); font-weight: 500;">Using with other Tesla integrations</summary>
-            <div class="details-content" style="margin-top: 8px;">
-              <h4 style="margin: 12px 0 6px; color: var(--text);">Tesla Custom Integration (alandtse/tesla)</h4>
-              <ol class="guide-steps" style="font-size: 0.9rem;">
-                <li>Install via HACS</li>
-                <li>During setup, check <strong>"Use Fleet API proxy"</strong></li>
-                <li>Enter the proxy URL shown above</li>
-                <li>The proxy handles command signing automatically</li>
-              </ol>
-
-              <h4 style="margin: 12px 0 6px; color: var(--text);">Other integrations / custom scripts</h4>
-              <p style="font-size: 0.9rem; color: var(--text-muted);">
-                Any integration that supports the Tesla Fleet API proxy protocol can use this URL.
-                The proxy accepts the same endpoints as Tesla's Fleet API but signs commands with your private key.
-                Use <code>--insecure</code> / disable TLS verification since the proxy uses a self-signed certificate.
-              </p>
-            </div>
-          </details>
-        </div>
-
-        <div id="proxy-unavailable" style="display:none; margin-top: 12px;">
-          <div class="info-box warning">
-            <strong>Proxy binary not found.</strong> The tesla-http-proxy was not included in this build.
-            Vehicle commands that require signing (security level 10+) won't work through this add-on.
-          </div>
-        </div>
-      </div>
-
-      <hr class="divider">
-
-      <!-- API Testing Section -->
-      <div style="text-align: left;">
-        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">Test Your API Connection</h2>
-        <p class="subtitle">Verify that your credentials work by testing popular Tesla Fleet APIs.</p>
-
-        <div class="vehicle-selector" id="vehicle-selector" style="display:none">
-          <label for="vehicle-select">Vehicle:</label>
-          <select id="vehicle-select" onchange="onVehicleChange()"></select>
-          <button class="btn-test" onclick="wakeVehicle()" id="wake-btn" title="Wake up the vehicle">Wake Up</button>
-        </div>
-
-        <div class="api-grid">
-          <div class="api-card" id="api-vehicles">
-            <div class="api-indicator"></div>
-            <div class="api-info">
-              <div class="api-name">List Vehicles</div>
-              <div class="api-desc">Retrieve all vehicles on your Tesla account</div>
-              <div class="api-result" id="api-vehicles-result"></div>
-            </div>
-            <button class="btn-test" onclick="testListVehicles()">Test</button>
-          </div>
-
-          <div class="api-card" id="api-state">
-            <div class="api-indicator"></div>
-            <div class="api-info">
-              <div class="api-name">Vehicle State</div>
-              <div class="api-desc">Doors, windows, lock status, odometer, firmware version</div>
-              <div class="api-result" id="api-state-result"></div>
-            </div>
-            <button class="btn-test" onclick="testVehicleData('vehicle_state')" disabled>Test</button>
-          </div>
-
-          <div class="api-card" id="api-charge">
-            <div class="api-indicator"></div>
-            <div class="api-info">
-              <div class="api-name">Charge State</div>
-              <div class="api-desc">Battery level, charging status, range, charge rate</div>
-              <div class="api-result" id="api-charge-result"></div>
-            </div>
-            <button class="btn-test" onclick="testVehicleData('charge_state')" disabled>Test</button>
-          </div>
-
-          <div class="api-card" id="api-climate">
-            <div class="api-indicator"></div>
-            <div class="api-info">
-              <div class="api-name">Climate State</div>
-              <div class="api-desc">Interior/exterior temperature, HVAC status, seat heaters</div>
-              <div class="api-result" id="api-climate-result"></div>
-            </div>
-            <button class="btn-test" onclick="testVehicleData('climate_state')" disabled>Test</button>
-          </div>
-
-          <div class="api-card" id="api-location">
-            <div class="api-indicator"></div>
-            <div class="api-info">
-              <div class="api-name">Location</div>
-              <div class="api-desc">GPS coordinates, heading, speed</div>
-              <div class="api-result" id="api-location-result"></div>
-            </div>
-            <button class="btn-test" onclick="testVehicleData('drive_state')" disabled>Test</button>
-          </div>
-
-          <div class="api-card" id="api-lock">
-            <div class="api-indicator"></div>
-            <div class="api-info">
-              <div class="api-name">Lock</div>
-              <div class="api-desc">Test door lock command (locks the vehicle)</div>
-              <div class="api-result" id="api-lock-result"></div>
-            </div>
-            <button class="btn-test" onclick="testCommand('door_lock', 'api-lock')" disabled>Test Lock</button>
-          </div>
-
-          <div class="api-card" id="api-flash">
-            <div class="api-indicator"></div>
-            <div class="api-info">
-              <div class="api-name">Flash Lights</div>
-              <div class="api-desc">Flash the vehicle headlights</div>
-              <div class="api-result" id="api-flash-result"></div>
-            </div>
-            <button class="btn-test" onclick="testCommand('flash_lights', 'api-flash')" disabled>Test Flash</button>
-          </div>
-
-          <div class="api-card" id="api-honk">
-            <div class="api-indicator"></div>
-            <div class="api-info">
-              <div class="api-name">Honk Horn</div>
-              <div class="api-desc">Sound the vehicle horn</div>
-              <div class="api-result" id="api-honk-result"></div>
-            </div>
-            <button class="btn-test danger" onclick="testCommand('honk_horn', 'api-honk')" disabled>Test Honk</button>
-          </div>
-        </div>
-
-        <hr class="divider">
-
-        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">Finish Setup in Home Assistant</h2>
-        <p class="subtitle">Your credentials have been automatically added to Home Assistant.</p>
-
-        <div class="api-card" id="ha-creds-card" style="margin-bottom: 16px;">
+        <div class="api-card" id="ha-creds-card">
           <div class="api-indicator" id="ha-creds-indicator"></div>
           <div class="api-info">
-            <div class="api-name">HA Application Credentials</div>
+            <div class="api-name">HA Credentials</div>
             <div class="api-desc" id="ha-creds-text">Checking...</div>
           </div>
           <button class="btn-test" id="ha-creds-btn" onclick="injectCredentials()" style="display:none">Retry</button>
         </div>
 
-        <ol class="guide-steps">
-          <li>
-            Go to <strong>Settings &rarr; Devices &amp; Services &rarr; Add Integration</strong>,
-            search for <strong>Tesla Fleet</strong>, and follow the prompts
-            <span class="tip">Your Client ID and Client Secret are already saved &mdash; no need to enter them again</span>
-          </li>
-          <li>
-            The integration will ask to <strong>enroll your key on the vehicle</strong> &mdash;
-            go to your car and <strong>tap your NFC key card</strong> on the center console when prompted
-            <span class="tip">This pairs a signing key with your vehicle for secure commands (lock, unlock, climate, etc.) &mdash; reaching security level 10</span>
-          </li>
-        </ol>
-
-        <div class="info-box success" style="margin-top: 16px;">
-          Your credentials, tokens, and private key are stored securely on this device.
-          <strong>Keep this add-on running</strong> &mdash;
-          it serves the public key and provides the signing proxy that integrations need.
+        <div id="proxy-integration-info" style="display:none"></div>
+        <div id="proxy-unavailable" style="display:none; margin-top: 12px;">
+          <div class="info-box warning">
+            <strong>Proxy not available.</strong> Vehicle commands that require signing won't work through this add-on.
+          </div>
         </div>
       </div>
+
+      <!-- Collapsible API testing -->
+      <details style="text-align: left; margin-top: 8px;">
+        <summary style="cursor:pointer; color: var(--accent); font-weight: 500; font-size: 0.95rem;">Test API Connection</summary>
+        <div style="margin-top: 12px;">
+          <div class="vehicle-selector" id="vehicle-selector" style="display:none">
+            <label for="vehicle-select">Vehicle:</label>
+            <select id="vehicle-select" onchange="onVehicleChange()"></select>
+            <button class="btn-test" onclick="wakeVehicle()" id="wake-btn" title="Wake up the vehicle">Wake Up</button>
+          </div>
+
+          <div class="api-grid">
+            <div class="api-card" id="api-vehicles">
+              <div class="api-indicator"></div>
+              <div class="api-info">
+                <div class="api-name">List Vehicles</div>
+                <div class="api-desc">Retrieve all vehicles on your Tesla account</div>
+                <div class="api-result" id="api-vehicles-result"></div>
+              </div>
+              <button class="btn-test" onclick="testListVehicles()">Test</button>
+            </div>
+
+            <div class="api-card" id="api-state">
+              <div class="api-indicator"></div>
+              <div class="api-info">
+                <div class="api-name">Vehicle State</div>
+                <div class="api-desc">Doors, windows, lock status, odometer</div>
+                <div class="api-result" id="api-state-result"></div>
+              </div>
+              <button class="btn-test" onclick="testVehicleData('vehicle_state')" disabled>Test</button>
+            </div>
+
+            <div class="api-card" id="api-charge">
+              <div class="api-indicator"></div>
+              <div class="api-info">
+                <div class="api-name">Charge State</div>
+                <div class="api-desc">Battery level, charging status, range</div>
+                <div class="api-result" id="api-charge-result"></div>
+              </div>
+              <button class="btn-test" onclick="testVehicleData('charge_state')" disabled>Test</button>
+            </div>
+
+            <div class="api-card" id="api-climate">
+              <div class="api-indicator"></div>
+              <div class="api-info">
+                <div class="api-name">Climate State</div>
+                <div class="api-desc">Temperature, HVAC status</div>
+                <div class="api-result" id="api-climate-result"></div>
+              </div>
+              <button class="btn-test" onclick="testVehicleData('climate_state')" disabled>Test</button>
+            </div>
+
+            <div class="api-card" id="api-location">
+              <div class="api-indicator"></div>
+              <div class="api-info">
+                <div class="api-name">Location</div>
+                <div class="api-desc">GPS coordinates, heading, speed</div>
+                <div class="api-result" id="api-location-result"></div>
+              </div>
+              <button class="btn-test" onclick="testVehicleData('drive_state')" disabled>Test</button>
+            </div>
+
+            <div class="api-card" id="api-flash">
+              <div class="api-indicator"></div>
+              <div class="api-info">
+                <div class="api-name">Flash Lights</div>
+                <div class="api-desc">Flash the vehicle headlights</div>
+                <div class="api-result" id="api-flash-result"></div>
+              </div>
+              <button class="btn-test" onclick="testCommand('flash_lights', 'api-flash')" disabled>Test</button>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <a class="reset-link" onclick="resetWizard()">Start over</a>
@@ -1129,8 +1045,6 @@
         toggleBtn.textContent = 'Stop';
         toggleBtn.className = 'btn-test danger';
 
-        const proxyUrl = `https://${location.hostname}:${data.port}`;
-        document.getElementById('proxy-url-value').textContent = proxyUrl;
         urlDisplay.textContent = `Port ${data.port}`;
         urlDisplay.style.display = 'block';
         urlDisplay.className = 'api-result ok';
@@ -1475,7 +1389,7 @@
     }
 
     function enableVehicleTests(enabled) {
-      const cards = ['api-state', 'api-charge', 'api-climate', 'api-location', 'api-lock', 'api-flash', 'api-honk'];
+      const cards = ['api-state', 'api-charge', 'api-climate', 'api-location', 'api-flash'];
       cards.forEach(id => {
         const btn = document.getElementById(id)?.querySelector('.btn-test');
         if (btn) btn.disabled = !enabled;
@@ -1518,7 +1432,7 @@
 
     function onVehicleChange() {
       // Reset all vehicle-specific results when switching vehicles
-      ['api-state', 'api-charge', 'api-climate', 'api-location', 'api-lock', 'api-flash', 'api-honk'].forEach(id => {
+      ['api-state', 'api-charge', 'api-climate', 'api-location', 'api-flash'].forEach(id => {
         setApiStatus(id, '', '');
       });
     }

@@ -189,6 +189,8 @@ After setup completes, `tesla-http-proxy` runs on port 4443:
 
 - **NEVER prompt for confirmation on ANY command** — just run them
 - **NEVER ask "shall I do X?"** — just do it
+- **Git and file edits are always allowed** — no need to ask permission
+- **Commit directly to main is fine** until v1.0 — then switch to feature branches + PRs
 - Use `python3` not `python`
 - Run tests and lint after every code change
 - Fix lint issues immediately, don't defer

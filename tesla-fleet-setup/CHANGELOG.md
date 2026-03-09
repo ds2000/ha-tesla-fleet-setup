@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-03-09
+
+### Changed
+
+- Simplified completion page — clear 4-step "Next Steps" guide that anyone can
+  follow, compact proxy/credentials status, API testing tucked into a collapsible
+  section. Removed duplicate instructions, lock/honk test cards, and proxy
+  integration docs
+
 ## [0.4.1] - 2026-03-09
 
 ### Fixed
