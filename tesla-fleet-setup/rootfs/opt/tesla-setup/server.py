@@ -69,6 +69,7 @@ state = {
     "partner_registered": False,
     "oauth_state": None,
     "tokens": None,
+    "api_region": None,  # Detected Fleet API base URL
 }
 
 
@@ -110,6 +111,7 @@ async def api_status(request):
         "has_credentials": state["client_id"] is not None,
         "has_tokens": state["tokens"] is not None,
         "ha_credentials_injected": state.get("ha_credentials_injected", False),
+        "api_region": state.get("api_region"),
         "proxy": proxy_manager.get_status(),
     })
 
@@ -261,6 +263,15 @@ async def oauth_callback(request):
         state["oauth_state"] = None
         save_state()
         logger.info("OAuth complete — tokens saved")
+
+        # Auto-detect Fleet API region (NA vs EU)
+        try:
+            region_base = await tesla_api.detect_region(token_data["access_token"])
+            tesla_api.set_api_base(region_base)
+            state["api_region"] = region_base
+            save_state()
+        except Exception as e:
+            logger.warning("Region detection failed: %s", e)
 
         # Inject credentials into HA Application Credentials store
         cred_result = await ha_credentials.inject_credentials(
@@ -458,6 +469,11 @@ async def on_startup(app):
     load_state()
     keygen.ensure_keys()
     logger.info("Keys ready. Wizard available on port %d", PORT)
+
+    # Restore detected Fleet API region
+    if state.get("api_region"):
+        tesla_api.set_api_base(state["api_region"])
+        logger.info("Restored Fleet API region: %s", state["api_region"])
 
     # Install key to HA config if setup was previously completed
     if state.get("tokens") and not HA_CONFIG_KEY.exists():

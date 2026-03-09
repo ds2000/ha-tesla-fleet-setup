@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-03-09
+
+### Added
+
+- **EU/EMEA region support** — auto-detects the user's Fleet API region (NA vs
+  EU) after OAuth using Tesla's `/api/1/users/region` endpoint. Previously
+  hardcoded to NA, which caused 412 errors for European users
+- Partner registration now registers on **both** NA and EU endpoints so the app
+  works regardless of where the user's account lives
+- API requests auto-retry on 412 (wrong region) by detecting and switching to
+  the correct regional endpoint
+- Region is persisted in state and restored on add-on restart
+- 4 new tests for region detection (106 total)
+
 ## [0.4.2] - 2026-03-09
 
 ### Changed

@@ -44,7 +44,12 @@ def _isolate_state(tmp_path, monkeypatch):
         "partner_registered": False,
         "oauth_state": None,
         "tokens": None,
+        "api_region": None,
     }
+
+    # Reset tesla_api region to default
+    import tesla_api
+    tesla_api.set_api_base(tesla_api.DEFAULT_API_BASE)
 
 
 @pytest.fixture

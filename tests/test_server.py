@@ -209,6 +209,36 @@ class TestTunnelGuard:
         assert resp.status == 200
 
 
+class TestRegionDetection:
+    async def test_status_includes_region(self, client):
+        server.state["api_region"] = "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+        resp = await client.get("/api/status")
+        data = await resp.json()
+        assert data["api_region"] == "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+
+    async def test_status_region_null_by_default(self, client):
+        resp = await client.get("/api/status")
+        data = await resp.json()
+        assert data["api_region"] is None
+
+    async def test_region_restored_on_load(self, client):
+        import tesla_api
+        server.state["api_region"] = "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+        server.save_state()
+        server.load_state()
+        # Simulate what on_startup does
+        if server.state.get("api_region"):
+            tesla_api.set_api_base(server.state["api_region"])
+        assert tesla_api.get_api_base() == "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+
+    async def test_set_and_get_api_base(self):
+        import tesla_api
+        tesla_api.set_api_base("https://fleet-api.prd.eu.vn.cloud.tesla.com")
+        assert tesla_api.get_api_base() == "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+        tesla_api.set_api_base(tesla_api.DEFAULT_API_BASE)
+        assert tesla_api.get_api_base() == tesla_api.TESLA_API_BASE_NA
+
+
 class TestStatePersistence:
     async def test_state_saved_to_disk(self, client, tmp_path):
         server.state["step"] = 3
