@@ -115,7 +115,7 @@ After the wizard completes, the user adds the HA Tesla Fleet integration:
 3. User signs in with Tesla OAuth (redirect via `my.home-assistant.io`)
 4. HA asks for the domain → user pastes from our completion page (copy button)
 5. HA calls `partner_accounts` → tunnel serves the public key for verification
-6. User taps NFC key card on vehicle → key enrollment complete
+6. User opens `https://tesla.com/_ak/DOMAIN` on phone → Tesla app enrols virtual key
 
 **Critical**: The Cloudflare tunnel must stay running so HA can verify the
 domain during its own setup. The tunnel now auto-restarts on add-on boot.

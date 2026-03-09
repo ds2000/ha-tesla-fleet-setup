@@ -837,7 +837,13 @@
               <button class="btn-copy" onclick="copyText(this, 'ha-domain-value')">Copy</button>
             </div>
           </li>
-          <li>Go to your car and <strong>tap your NFC key card</strong> on the centre console when prompted</li>
+          <li><strong>Enrol your vehicle key</strong> &mdash; open this link <strong>on your phone</strong> (Safari on iPhone):
+            <div class="copy-row" style="margin-top: 8px;">
+              <code id="ha-enrol-url" style="background: var(--bg); padding: 6px 12px; border-radius: 6px; flex: 1; font-size: 0.9rem; word-break: break-all;"></code>
+              <button class="btn-copy" onclick="copyText(this, 'ha-enrol-url')">Copy</button>
+            </div>
+            <span class="tip" style="margin-top: 4px; display: block;">This opens the Tesla app and asks you to approve a virtual key for your vehicle. Repeat for each vehicle.</span>
+          </li>
         </ol>
 
         <p style="margin-top: 16px; font-size: 0.85rem; color: var(--text-muted);">
@@ -1012,12 +1018,14 @@
       document.querySelectorAll('.step-card').forEach(el => el.classList.remove('visible'));
       document.getElementById('step-complete').classList.add('visible');
       document.querySelectorAll('.progress-step').forEach(el => el.classList.add('complete'));
-      // Show the domain for HA integration setup
+      // Show the domain and enrol URL for HA integration setup
       try {
         const domain = new URL(publicKeyUrl).hostname;
         document.getElementById('ha-domain-value').textContent = domain;
+        document.getElementById('ha-enrol-url').textContent = `https://tesla.com/_ak/${domain}`;
       } catch (e) {
         document.getElementById('ha-domain-value').textContent = publicKeyUrl || '(unknown)';
+        document.getElementById('ha-enrol-url').textContent = '(set up domain first)';
       }
       checkProxyStatus();
       checkCredentialStatus();
