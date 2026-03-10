@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.13] - 2026-03-10
+
+### Fixed
+
+- SSDP discovery now filters responses by `InternetGatewayDevice` ST header —
+  no longer picks up Hue bridges or other non-IGD UPnP devices
+- UPnP port mapping supports different external/internal ports for diagnostics
+
+### Added
+
+- Diagnostic endpoint `/api/duckdns/port-test` — maps external 8443 → internal
+  443 to test if ISP blocks specific ports
+
 ## [0.6.12] - 2026-03-10
 
 ### Fixed

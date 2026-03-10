@@ -453,6 +453,12 @@ async def api_duckdns_upnp(request):
     return web.json_response(result)
 
 
+async def api_duckdns_port_test(request):
+    """Diagnostic: open external port 8443 → internal 443 via UPnP to test ISP blocking."""
+    result = await duckdns.open_port_upnp(port=443, ext_port=8443)
+    return web.json_response(result)
+
+
 async def api_duckdns_ip(request):
     """Update DuckDNS IP address."""
     data = await request.json()
@@ -609,6 +615,7 @@ def create_app() -> web.Application:
     # DuckDNS
     app.router.add_post("/api/duckdns/verify", api_duckdns_verify)
     app.router.add_post("/api/duckdns/upnp", api_duckdns_upnp)
+    app.router.add_post("/api/duckdns/port-test", api_duckdns_port_test)
     app.router.add_post("/api/duckdns/ip", api_duckdns_ip)
     app.router.add_post("/api/duckdns/cert", api_duckdns_cert)
     app.router.add_post("/api/duckdns/start", api_duckdns_start)

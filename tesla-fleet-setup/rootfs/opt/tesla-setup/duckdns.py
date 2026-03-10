@@ -69,7 +69,6 @@ def _ssdp_discover(lan_ip: str | None, timeout: float = 5.0) -> str | None:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.settimeout(timeout)
     try:
-        # Bind to LAN interface if known
         if lan_ip:
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
                             socket.inet_aton(lan_ip))
@@ -80,9 +79,18 @@ def _ssdp_discover(lan_ip: str | None, timeout: float = 5.0) -> str | None:
             try:
                 data, _ = sock.recvfrom(4096)
                 response = data.decode(errors="replace")
+                headers = {}
                 for line in response.splitlines():
-                    if line.lower().startswith("location:"):
-                        return line.split(":", 1)[1].strip()
+                    if ":" in line:
+                        key, val = line.split(":", 1)
+                        headers[key.strip().lower()] = val.strip()
+                # Only accept responses that are actually IGD devices
+                st = headers.get("st", "")
+                if "internetgatewaydevice" not in st.lower():
+                    logger.debug("UPnP: skipping non-IGD response (ST=%s)", st)
+                    continue
+                if "location" in headers:
+                    return headers["location"]
             except socket.timeout:
                 break
     finally:
@@ -116,8 +124,11 @@ async def _find_control_url(location: str) -> str | None:
     return None
 
 
-async def _soap_add_port_mapping(control_url: str, port: int, lan_ip: str, description: str = "HA Tesla Fleet") -> dict:
+async def _soap_add_port_mapping(control_url: str, port: int, lan_ip: str,
+                                  ext_port: int | None = None, description: str = "HA Tesla Fleet") -> dict:
     """Call AddPortMapping via UPnP SOAP action."""
+    if ext_port is None:
+        ext_port = port
     # Try both WANIPConnection and WANPPPConnection service types
     for service_type in [
         "urn:schemas-upnp-org:service:WANIPConnection:1",
@@ -130,7 +141,7 @@ async def _soap_add_port_mapping(control_url: str, port: int, lan_ip: str, descr
             "<s:Body>"
             f'<u:AddPortMapping xmlns:u="{service_type}">'
             "<NewRemoteHost></NewRemoteHost>"
-            f"<NewExternalPort>{port}</NewExternalPort>"
+            f"<NewExternalPort>{ext_port}</NewExternalPort>"
             "<NewProtocol>TCP</NewProtocol>"
             f"<NewInternalPort>{port}</NewInternalPort>"
             f"<NewInternalClient>{lan_ip}</NewInternalClient>"
@@ -162,7 +173,7 @@ async def _soap_add_port_mapping(control_url: str, port: int, lan_ip: str, descr
     return {"success": False, "error": "SOAP AddPortMapping failed on all service types"}
 
 
-async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
+async def open_port_upnp(port: int = HTTPS_PORT, ext_port: int | None = None) -> dict:
     """Try to open a port on the router via UPnP IGD. Uses pure Python SSDP + SOAP."""
     try:
         lan_ip = _find_lan_ip()
@@ -189,9 +200,10 @@ async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
         logger.info("UPnP: control URL: %s", control_url)
 
         # Add the port mapping via SOAP
-        result = await _soap_add_port_mapping(control_url, port, lan_ip)
+        result = await _soap_add_port_mapping(control_url, port, lan_ip, ext_port=ext_port)
+        ep = ext_port or port
         if result["success"]:
-            logger.info("UPnP: port %d forwarded successfully via %s", port, control_url)
+            logger.info("UPnP: ext %d → int %d forwarded via %s", ep, port, control_url)
         return result
 
     except Exception as e:
