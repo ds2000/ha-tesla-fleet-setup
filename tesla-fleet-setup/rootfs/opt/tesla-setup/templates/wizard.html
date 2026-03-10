@@ -1544,7 +1544,7 @@
       btn.textContent = 'Retrying…';
       warnText.textContent = 'Attempting UPnP port forward…';
       try {
-        const r = await fetch(BASE + 'api/duckdns/upnp', {method: 'POST'});
+        const r = await fetch('api/duckdns/upnp', {method: 'POST'});
         const data = await r.json();
         if (data.success) {
           document.getElementById('upnp-warning').className = 'info-box success';

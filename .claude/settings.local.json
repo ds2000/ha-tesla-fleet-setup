@@ -101,7 +101,8 @@
       "Bash(python3 -m ruff check tesla-fleet-setup/rootfs/opt/tesla-setup/ tests/)",
       "Bash(git commit -m \"$\\(cat <<'EOF'\nrelease: v0.6.6 — fix doubled subdomain, add retry button\n\nStrip .duckdns.org suffix when user pastes full domain as subdomain,\npreventing doubled domain names. Reachability test button now shows\nRetry/Test Again and disables during the test.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.6.6 && git push origin main --tags)",
       "Bash(python3 -m ruff check tesla-fleet-setup/rootfs/opt/tesla-setup/ tests/ && python3 -m pytest tests/ -v 2>&1 | tail -5)",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nrelease: v0.6.7 — add Retry UPnP button on port forward warning\n\nWhen UPnP fails during DuckDNS activation, the warning now shows a\nRetry UPnP button that re-attempts port forwarding without re-running\nthe whole setup flow.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.6.7 && git push origin main --tags)"
+      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nrelease: v0.6.7 — add Retry UPnP button on port forward warning\n\nWhen UPnP fails during DuckDNS activation, the warning now shows a\nRetry UPnP button that re-attempts port forwarding without re-running\nthe whole setup flow.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.6.7 && git push origin main --tags)",
+      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfix: Retry UPnP button — use relative URL instead of undefined BASE\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.6.8 && git push origin main --tags)"
     ]
   }
 }
