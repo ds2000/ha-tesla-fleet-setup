@@ -104,6 +104,7 @@ class CloudflareAPI:
         # Get the tunnel token
         token_data = await self._get(f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token")
         token = token_data.get("result", "")
+        logger.info("Got tunnel token (length=%d, type=%s)", len(str(token)), type(token).__name__)
 
         return {"id": tunnel_id, "token": token}
 

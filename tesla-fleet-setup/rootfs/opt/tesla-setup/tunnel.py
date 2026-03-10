@@ -38,21 +38,33 @@ async def start(token: str, domain: str) -> dict:
     _domain = domain
 
     try:
-        _process = await asyncio.create_subprocess_exec(
-            "cloudflared", "tunnel", "run", "--token", token,
-            "--no-autoupdate",
+        # Log token length/format for debugging (never log the actual token)
+        logger.info("Starting cloudflared with token length=%d", len(token))
+
+        # First verify cloudflared works at all
+        version_proc = await asyncio.create_subprocess_exec(
+            "cloudflared", "--version",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
-        # Give it time to connect (cloudflared can take a few seconds)
-        await asyncio.sleep(5)
+        version_out = await version_proc.stdout.read()
+        logger.info("cloudflared version: %s", version_out.decode(errors="replace").strip())
+
+        _process = await asyncio.create_subprocess_exec(
+            "cloudflared", "tunnel", "--loglevel", "info", "run", "--token", token,
+            "--no-autoupdate", "--protocol", "quic",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        # Give it time to connect
+        await asyncio.sleep(8)
 
         if _process.returncode is not None:
             output = await _process.stdout.read()
-            error = output.decode(errors="replace").strip()[-500:]
-            logger.error("Cloudflare tunnel exited immediately: %s", error)
+            error = output.decode(errors="replace").strip()[-800:]
+            logger.error("Cloudflare tunnel exited (code %d): %s", _process.returncode, error)
             _process = None
-            return {"success": False, "error": error or "Tunnel exited immediately"}
+            return {"success": False, "error": error or f"Tunnel exited with code {_process.returncode}"}
 
         logger.info("Cloudflare tunnel started for %s (pid %d)", domain, _process.pid)
 
