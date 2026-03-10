@@ -744,7 +744,7 @@
         </div>
 
         <div class="btn-row">
-          <button class="btn btn-secondary btn-small" onclick="verifyUrl()">Test Reachability</button>
+          <button class="btn btn-secondary btn-small" onclick="verifyUrl()" id="verify-btn">Test Reachability</button>
           <button class="btn btn-primary" onclick="goToStep(3)" id="step2-next" disabled>Continue</button>
         </div>
 
@@ -1433,7 +1433,8 @@
     }
 
     async function setupDuckDNS() {
-      const subdomain = document.getElementById('duckdns-subdomain').value.trim().toLowerCase();
+      const subdomain = document.getElementById('duckdns-subdomain').value.trim().toLowerCase()
+        .replace(/\.duckdns\.org$/i, '').replace(/\.duckdns$/i, '').replace(/^\.+|\.+$/g, '');
       const token = document.getElementById('duckdns-token').value.trim();
       const status = document.getElementById('duckdns-status');
       const body = JSON.stringify({ subdomain, token });
@@ -1536,9 +1537,11 @@
     async function verifyUrl() {
       const icon = document.getElementById('verify-icon');
       const text = document.getElementById('verify-text');
+      const btn = document.getElementById('verify-btn');
       icon.className = 'status-icon running';
       icon.innerHTML = '<span class="spinner"></span>';
       text.textContent = 'Testing...';
+      btn.disabled = true;
 
       try {
         const resp = await fetch(`api/verify-url`, { method: 'POST' });
@@ -1548,16 +1551,20 @@
           icon.textContent = '\u2713';
           text.textContent = 'Your public key is reachable from the internet';
           document.getElementById('step2-next').disabled = false;
+          btn.textContent = 'Test Again';
         } else {
           icon.className = 'status-icon error';
           icon.textContent = '!';
           text.textContent = 'Not reachable: ' + (data.error || 'HTTP ' + data.status);
+          btn.textContent = 'Retry';
         }
       } catch (e) {
         icon.className = 'status-icon error';
         icon.textContent = '!';
         text.textContent = 'Test failed: ' + e.message;
+        btn.textContent = 'Retry';
       }
+      btn.disabled = false;
     }
 
     // --- Step 3: Credentials ---

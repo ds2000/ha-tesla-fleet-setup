@@ -426,10 +426,20 @@ async def api_inject_credentials(request):
     return web.json_response(result)
 
 
+def _clean_subdomain(raw: str) -> str:
+    """Strip .duckdns.org suffix and whitespace from subdomain input."""
+    s = raw.strip().lower()
+    # User may paste full domain instead of just subdomain
+    for suffix in [".duckdns.org", ".duckdns"]:
+        if s.endswith(suffix):
+            s = s[: -len(suffix)]
+    return s.strip(".")
+
+
 async def api_duckdns_verify(request):
     """Verify DuckDNS credentials work."""
     data = await request.json()
-    subdomain = data.get("subdomain", "").strip().lower()
+    subdomain = _clean_subdomain(data.get("subdomain", ""))
     token = data.get("token", "").strip()
     if not subdomain or not token:
         return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
@@ -446,7 +456,7 @@ async def api_duckdns_upnp(request):
 async def api_duckdns_ip(request):
     """Update DuckDNS IP address."""
     data = await request.json()
-    subdomain = data.get("subdomain", "").strip().lower()
+    subdomain = _clean_subdomain(data.get("subdomain", ""))
     token = data.get("token", "").strip()
     if not subdomain or not token:
         return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
@@ -459,7 +469,7 @@ async def api_duckdns_ip(request):
 async def api_duckdns_cert(request):
     """Obtain Let's Encrypt certificate via DNS-01."""
     data = await request.json()
-    subdomain = data.get("subdomain", "").strip().lower()
+    subdomain = _clean_subdomain(data.get("subdomain", ""))
     token = data.get("token", "").strip()
     if not subdomain or not token:
         return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
@@ -470,7 +480,7 @@ async def api_duckdns_cert(request):
 async def api_duckdns_start(request):
     """Start HTTPS server + background services and save state."""
     data = await request.json()
-    subdomain = data.get("subdomain", "").strip().lower()
+    subdomain = _clean_subdomain(data.get("subdomain", ""))
     token = data.get("token", "").strip()
     if not subdomain or not token:
         return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
