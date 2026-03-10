@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-03-10
+
+### Fixed
+
+- Cloudflare Tunnel option now always visible on Step 2 — the DuckDNS
+  reachability test was hitting localhost:443 (always passes) so the
+  Cloudflare section never appeared. Now shown alongside DuckDNS as an
+  alternative for users with ISP port blocking or double NAT
+
 ## [0.7.1] - 2026-03-10
 
 ### Changed

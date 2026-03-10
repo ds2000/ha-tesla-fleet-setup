@@ -766,7 +766,7 @@
       </div>
 
       <!-- Cloudflare Tunnel fallback -->
-      <div id="cf-tunnel-section" style="display:none">
+      <div id="cf-tunnel-section">
         <h3 style="margin-top:24px">Alternative: Cloudflare Tunnel</h3>
         <p class="subtitle">If port 443 is blocked (ISP restriction, double NAT), a Cloudflare Tunnel
           bypasses all port forwarding. Requires a free
@@ -1219,7 +1219,6 @@
           }
           // Restore Cloudflare tunnel state
           if (data.url_method === 'cloudflare' && data.cf_tunnel_domain) {
-            document.getElementById('cf-tunnel-section').style.display = 'block';
             document.getElementById('cf-setup-form').style.display = 'none';
             document.getElementById('cf-url-value').textContent = 'https://' + data.cf_tunnel_domain;
             document.getElementById('cf-ready').style.display = 'block';
@@ -1661,10 +1660,6 @@
           icon.textContent = '!';
           text.textContent = 'Not reachable: ' + (data.error || 'HTTP ' + data.status);
           btn.textContent = 'Retry';
-          // Show Cloudflare fallback when DuckDNS fails
-          if (!isCf) {
-            document.getElementById('cf-tunnel-section').style.display = 'block';
-          }
         }
       } catch (e) {
         icon.className = 'status-icon error';

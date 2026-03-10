@@ -13,7 +13,7 @@
       "Bash(grep *)",
       "WebSearch",
       "WebFetch",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfeat: automated Cloudflare Tunnel setup via API\n\nInstead of manually creating tunnels in the Cloudflare dashboard, the\nwizard now automates everything: user pastes an API token, picks their\ndomain from a dropdown, clicks \"Set Up Tunnel\" — and we create the\ntunnel, configure DNS, and start cloudflared automatically.\n\nNew cf_api.py module for Cloudflare API \\(tunnel CRUD, DNS records\\).\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.1 && git push origin main --tags)"
+      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfix: always show Cloudflare Tunnel option on Step 2\n\nDuckDNS reachability test hits localhost:443 which always passes —\nit can't detect external unreachability from inside the container.\nShow Cloudflare option alongside DuckDNS instead of hiding it.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.2 && git push origin main --tags)"
     ]
   }
 }
