@@ -43,6 +43,15 @@ _https_runner = None
 async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
     """Try to open a port on the router via UPnP. Returns {success, error?}."""
     try:
+        # Log network interfaces for diagnostics (host_network must be active)
+        iface_proc = await asyncio.create_subprocess_exec(
+            "ip", "-4", "addr", "show",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        iface_out, _ = await asyncio.wait_for(iface_proc.communicate(), timeout=5)
+        logger.info("Network interfaces:\n%s", iface_out.decode().strip()[:500])
+
         # First, discover IGD devices with extended timeout (-m 5 = 5 second discovery)
         disc = await asyncio.create_subprocess_exec(
             "upnpc", "-m", "5", "-l",
