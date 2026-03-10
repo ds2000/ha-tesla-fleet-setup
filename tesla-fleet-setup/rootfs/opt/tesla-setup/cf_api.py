@@ -13,8 +13,9 @@ Requires a Cloudflare API token with permissions:
   - Zone > DNS > Edit
 """
 
+import base64
 import logging
-import secrets
+import os
 
 import aiohttp
 
@@ -82,7 +83,7 @@ class CloudflareAPI:
 
     async def create_tunnel(self, account_id: str, name: str) -> dict:
         """Create a named tunnel. Returns {id, token} or {error}."""
-        tunnel_secret = secrets.token_urlsafe(32)
+        tunnel_secret = base64.b64encode(os.urandom(32)).decode()
         data = await self._post(f"/accounts/{account_id}/cfd_tunnel", json={
             "name": name,
             "tunnel_secret": tunnel_secret,
