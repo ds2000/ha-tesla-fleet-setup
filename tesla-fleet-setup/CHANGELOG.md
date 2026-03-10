@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-03-10
+
+### Fixed
+
+- Subdomain must not contain "tesla" — Tesla's developer portal rejects
+  domains with "tesla" in the name. Auto-generated subdomain changed from
+  `ha-tesla-xxxx` to `ha-fleet-xxxx`, validation added before activation,
+  and a visible warning added to the subdomain step
+
 ## [0.6.3] - 2026-03-10
 
 ### Changed

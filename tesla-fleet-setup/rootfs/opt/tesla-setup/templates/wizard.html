@@ -638,6 +638,8 @@
           <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
             Type the name below into the "sub domain" field on DuckDNS and click
             <strong>add domain</strong>.
+            <span style="color:var(--warning)">The name must not contain "tesla"</span>
+            &mdash; Tesla's developer portal rejects it.
           </p>
           <div class="copy-field">
             <span class="field-label">Subdomain to create</span>
@@ -1386,10 +1388,12 @@
 
     // --- Step 2: DuckDNS ---
     function generateSubdomain() {
+      // IMPORTANT: subdomain must NOT contain "tesla" — Tesla's developer
+      // portal rejects domains with "tesla" in the name.
       const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
       let suffix = '';
-      for (let i = 0; i < 4; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
-      return 'ha-tesla-' + suffix;
+      for (let i = 0; i < 6; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
+      return 'ha-fleet-' + suffix;
     }
 
     function showDuckDNSSetup() {
@@ -1439,6 +1443,12 @@
         status.style.display = 'block';
         status.style.color = 'var(--error)';
         status.textContent = 'Please enter both subdomain and token.';
+        return;
+      }
+      if (subdomain.includes('tesla')) {
+        status.style.display = 'block';
+        status.style.color = 'var(--error)';
+        status.textContent = 'Subdomain cannot contain "tesla" — Tesla\'s developer portal will reject it.';
         return;
       }
 
