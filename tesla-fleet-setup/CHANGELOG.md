@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.11] - 2026-03-10
+
+### Fixed
+
+- UPnP now binds to the correct network interface — auto-detects the LAN IP
+  (e.g. `192.168.1.23`) and passes it to `upnpc -m <ip>` so SSDP multicast
+  goes out the right interface instead of failing with `SIOCGIFADDR: No such
+  device`. Previous `-m 5` was wrong (treated as an address, not a timeout)
+
 ## [0.6.10] - 2026-03-10
 
 ### Changed

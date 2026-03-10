@@ -40,10 +40,29 @@ _https_runner = None
 
 # ── UPnP port forwarding ─────────────────────────────────────────────────────
 
+def _find_lan_ip() -> str | None:
+    """Find the LAN IP address (non-loopback, non-docker) for UPnP binding."""
+    import socket
+    try:
+        # Connect to an external IP to determine which interface has the default route
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(2)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return None
+
+
 async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
     """Try to open a port on the router via UPnP. Returns {success, error?}."""
     try:
-        # Log network interfaces for diagnostics (host_network must be active)
+        # Find the LAN IP to bind UPnP discovery to the right interface
+        lan_ip = _find_lan_ip()
+        logger.info("UPnP: detected LAN IP: %s", lan_ip)
+
+        # Log network interfaces for diagnostics
         iface_proc = await asyncio.create_subprocess_exec(
             "ip", "-4", "addr", "show",
             stdout=asyncio.subprocess.PIPE,
@@ -52,9 +71,14 @@ async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
         iface_out, _ = await asyncio.wait_for(iface_proc.communicate(), timeout=5)
         logger.info("Network interfaces:\n%s", iface_out.decode().strip()[:500])
 
-        # First, discover IGD devices with extended timeout (-m 5 = 5 second discovery)
+        # Build upnpc command — use -m <lan_ip> to bind to the correct interface
+        base_cmd = ["upnpc"]
+        if lan_ip:
+            base_cmd += ["-m", lan_ip]
+
+        # First, discover IGD devices
         disc = await asyncio.create_subprocess_exec(
-            "upnpc", "-m", "5", "-l",
+            *base_cmd, "-l",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -62,9 +86,9 @@ async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
         disc_output = d_out.decode() + d_err.decode()
         logger.info("UPnP discovery output:\n%s", disc_output.strip()[:500])
 
-        # Now try the actual port forward with extended discovery
+        # Now try the actual port forward
         proc = await asyncio.create_subprocess_exec(
-            "upnpc", "-m", "5", "-r", str(port), "TCP",
+            *base_cmd, "-r", str(port), "TCP",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
