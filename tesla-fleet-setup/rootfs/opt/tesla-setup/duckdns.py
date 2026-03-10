@@ -43,20 +43,31 @@ _https_runner = None
 async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
     """Try to open a port on the router via UPnP. Returns {success, error?}."""
     try:
-        proc = await asyncio.create_subprocess_exec(
-            "upnpc", "-r", str(port), "TCP",
+        # First, discover IGD devices with extended timeout (-m 5 = 5 second discovery)
+        disc = await asyncio.create_subprocess_exec(
+            "upnpc", "-m", "5", "-l",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
+        d_out, d_err = await asyncio.wait_for(disc.communicate(), timeout=20)
+        disc_output = d_out.decode() + d_err.decode()
+        logger.info("UPnP discovery output:\n%s", disc_output.strip()[:500])
+
+        # Now try the actual port forward with extended discovery
+        proc = await asyncio.create_subprocess_exec(
+            "upnpc", "-m", "5", "-r", str(port), "TCP",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
         output = stdout.decode() + stderr.decode()
 
         if proc.returncode == 0:
             logger.info("UPnP: port %d forwarded successfully", port)
             return {"success": True}
 
-        logger.warning("UPnP port forward failed (exit %d): %s", proc.returncode, output.strip()[:200])
-        return {"success": False, "error": output.strip()[:200]}
+        logger.warning("UPnP port forward failed (exit %d): %s", proc.returncode, output.strip()[:300])
+        return {"success": False, "error": output.strip()[:300]}
     except asyncio.TimeoutError:
         logger.warning("UPnP: timed out trying to open port %d", port)
         return {"success": False, "error": "UPnP discovery timed out — router may not support UPnP"}

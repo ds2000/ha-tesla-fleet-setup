@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.9] - 2026-03-10
+
+### Fixed
+
+- UPnP discovery now uses extended 5-second multicast timeout (`-m 5`) —
+  mesh routers like Orbi need more time for SSDP responses to propagate.
+  Also logs full discovery output to help diagnose UPnP failures
+
 ## [0.6.8] - 2026-03-10
 
 ### Fixed
