@@ -19,14 +19,24 @@ ARG BUILD_VERSION=dev
 # Copy tesla-http-proxy binary from builder
 COPY --from=go-builder /tesla-http-proxy /usr/local/bin/tesla-http-proxy
 
-# Install Python, pip, certbot, and UPnP client
+# Install Python, pip, certbot, UPnP client, and cloudflared
 RUN apk add --no-cache \
     python3 \
     py3-pip \
     py3-cryptography \
     certbot \
     miniupnpc \
-    curl
+    curl \
+    && ARCH="$(apk --print-arch)" \
+    && case "$ARCH" in \
+        x86_64)  CF_ARCH="amd64" ;; \
+        aarch64) CF_ARCH="arm64" ;; \
+        armv7l)  CF_ARCH="arm"   ;; \
+        *)       CF_ARCH="amd64" ;; \
+    esac \
+    && curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CF_ARCH}" \
+       -o /usr/local/bin/cloudflared \
+    && chmod +x /usr/local/bin/cloudflared
 
 # Install Python dependencies
 COPY requirements.txt /tmp/

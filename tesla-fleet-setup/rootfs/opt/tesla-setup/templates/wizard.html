@@ -759,8 +759,73 @@
                Home Assistant machine's IP address.</p>
             <p>DNS changes can take a minute to propagate &mdash; try the test again
                after a short wait.</p>
+            <p>If port forwarding isn't possible (double NAT, ISP blocking port 443),
+               use the <strong>Cloudflare Tunnel</strong> option below instead.</p>
           </div>
         </details>
+      </div>
+
+      <!-- Cloudflare Tunnel fallback -->
+      <div id="cf-tunnel-section" style="display:none">
+        <h3 style="margin-top:24px">Alternative: Cloudflare Tunnel</h3>
+        <p class="subtitle">If port 443 is blocked, a Cloudflare Tunnel bypasses all port forwarding.
+          Requires a free Cloudflare account and a domain on Cloudflare (~&euro;1/year for a .xyz).</p>
+
+        <details open>
+          <summary>Setup instructions</summary>
+          <div class="details-content">
+            <ol style="line-height:1.8">
+              <li>Go to <a href="https://one.dash.cloudflare.com" target="_blank" style="color:var(--accent)">Cloudflare Zero Trust</a> &rarr; Networks &rarr; Tunnels</li>
+              <li>Click <strong>Create a tunnel</strong>, name it <code>ha-tesla</code></li>
+              <li>Skip the connector install step &mdash; just copy the <strong>tunnel token</strong></li>
+              <li>Add a <strong>Public Hostname</strong>:
+                <ul style="margin-top:4px">
+                  <li>Subdomain: <code>tesla</code> (or any name)</li>
+                  <li>Domain: your Cloudflare domain</li>
+                  <li>Service: <code>http://localhost:8099</code></li>
+                </ul>
+              </li>
+              <li>Paste the token and domain below</li>
+            </ol>
+          </div>
+        </details>
+
+        <div style="margin-top:16px">
+          <label style="display:block; margin-bottom:8px; color:var(--text-dim)">Tunnel Token</label>
+          <input type="text" id="cf-token" class="input" placeholder="eyJhIjoi...">
+          <label style="display:block; margin:12px 0 8px; color:var(--text-dim)">Domain (e.g. tesla.example.com)</label>
+          <input type="text" id="cf-domain" class="input" placeholder="tesla.yourdomain.com">
+        </div>
+
+        <p id="cf-status" style="margin-top:8px; display:none"></p>
+
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn btn-primary" onclick="startCloudflare()" id="cf-start-btn">Connect Tunnel</button>
+        </div>
+
+        <!-- Cloudflare URL ready -->
+        <div id="cf-ready" style="display:none; margin-top:16px">
+          <div class="copy-field">
+            <span class="field-label">Your Domain</span>
+            <span class="field-value" id="cf-url-value"></span>
+            <button class="btn-copy" onclick="copyText(this, 'cf-url-value')">Copy</button>
+          </div>
+
+          <div class="info-box success">
+            Cloudflare Tunnel is active &mdash; your domain is stable and persists across restarts.
+            No port forwarding needed.
+          </div>
+
+          <div class="status-row" id="cf-verify-status">
+            <div class="status-icon pending" id="cf-verify-icon">?</div>
+            <span id="cf-verify-text">Click "Test Reachability" to check Tesla can reach your key</span>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-secondary btn-small" onclick="verifyUrl()" id="cf-verify-btn">Test Reachability</button>
+            <button class="btn btn-primary" onclick="goToStep(3)" id="cf-step2-next" disabled>Continue</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1152,6 +1217,14 @@
           if (data.duckdns_subdomain) {
             const subEl = document.getElementById('duckdns-subdomain');
             if (subEl) subEl.value = data.duckdns_subdomain;
+          }
+          // Restore Cloudflare tunnel state
+          if (data.url_method === 'cloudflare' && data.cf_tunnel_domain) {
+            document.getElementById('cf-tunnel-section').style.display = 'block';
+            document.getElementById('cf-domain').value = data.cf_tunnel_domain;
+            document.getElementById('cf-url-value').textContent = 'https://' + data.cf_tunnel_domain;
+            document.getElementById('cf-ready').style.display = 'block';
+            document.getElementById('cf-start-btn').style.display = 'none';
           }
           goToStep(data.step);
         }
@@ -1563,9 +1636,14 @@
     }
 
     async function verifyUrl() {
-      const icon = document.getElementById('verify-icon');
-      const text = document.getElementById('verify-text');
-      const btn = document.getElementById('verify-btn');
+      // Determine which UI context (DuckDNS or Cloudflare)
+      const cfReady = document.getElementById('cf-ready');
+      const isCf = cfReady && cfReady.style.display !== 'none';
+      const icon = document.getElementById(isCf ? 'cf-verify-icon' : 'verify-icon');
+      const text = document.getElementById(isCf ? 'cf-verify-text' : 'verify-text');
+      const btn = document.getElementById(isCf ? 'cf-verify-btn' : 'verify-btn');
+      const nextBtn = document.getElementById(isCf ? 'cf-step2-next' : 'step2-next');
+
       icon.className = 'status-icon running';
       icon.innerHTML = '<span class="spinner"></span>';
       text.textContent = 'Testing...';
@@ -1578,21 +1656,71 @@
           icon.className = 'status-icon success';
           icon.textContent = '\u2713';
           text.textContent = 'Your public key is reachable from the internet';
-          document.getElementById('step2-next').disabled = false;
+          nextBtn.disabled = false;
           btn.textContent = 'Test Again';
         } else {
           icon.className = 'status-icon error';
           icon.textContent = '!';
           text.textContent = 'Not reachable: ' + (data.error || 'HTTP ' + data.status);
           btn.textContent = 'Retry';
+          // Show Cloudflare fallback when DuckDNS fails
+          if (!isCf) {
+            document.getElementById('cf-tunnel-section').style.display = 'block';
+          }
         }
       } catch (e) {
         icon.className = 'status-icon error';
         icon.textContent = '!';
         text.textContent = 'Test failed: ' + e.message;
         btn.textContent = 'Retry';
+        if (!isCf) {
+          document.getElementById('cf-tunnel-section').style.display = 'block';
+        }
       }
       btn.disabled = false;
+    }
+
+    async function startCloudflare() {
+      const token = document.getElementById('cf-token').value.trim();
+      const domain = document.getElementById('cf-domain').value.trim().toLowerCase();
+      const status = document.getElementById('cf-status');
+      const btn = document.getElementById('cf-start-btn');
+
+      if (!token) { alert('Please enter the tunnel token'); return; }
+      if (!domain) { alert('Please enter your domain'); return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Connecting...';
+      status.style.display = 'block';
+      status.style.color = 'var(--text-dim)';
+      status.textContent = 'Starting Cloudflare tunnel...';
+
+      try {
+        const resp = await fetch('api/cloudflare/start', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({token, domain})
+        });
+        const data = await resp.json();
+        if (data.success) {
+          status.style.color = 'var(--success)';
+          status.textContent = 'Tunnel connected!';
+          // Show URL and verify section
+          document.getElementById('cf-url-value').textContent = 'https://' + domain;
+          document.getElementById('cf-ready').style.display = 'block';
+          btn.style.display = 'none';
+        } else {
+          status.style.color = 'var(--error)';
+          status.textContent = 'Failed: ' + (data.error || 'Unknown error');
+          btn.disabled = false;
+          btn.textContent = 'Retry';
+        }
+      } catch (e) {
+        status.style.color = 'var(--error)';
+        status.textContent = 'Error: ' + e.message;
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+      }
     }
 
     // --- Step 3: Credentials ---

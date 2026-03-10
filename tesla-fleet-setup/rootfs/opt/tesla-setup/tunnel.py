@@ -1,83 +1,117 @@
-"""Cloudflare quick tunnel management."""
+"""Cloudflare named tunnel management.
+
+Runs `cloudflared tunnel run --token <TOKEN>` as a persistent subprocess.
+Named tunnels have stable hostnames that don't change on restart — unlike
+quick tunnels which generated random trycloudflare.com URLs.
+
+Used as a fallback when DuckDNS port 443 isn't reachable (ISP blocking,
+double NAT, etc.).
+"""
 
 import asyncio
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 
+_process: asyncio.subprocess.Process | None = None
+_token: str | None = None
+_domain: str | None = None
+_restart_task: asyncio.Task | None = None
 
-class TunnelManager:
-    """Manages a cloudflared quick tunnel subprocess."""
 
-    def __init__(self):
-        self._process: asyncio.subprocess.Process | None = None
-        self._url: str | None = None
+def is_running() -> bool:
+    return _process is not None and _process.returncode is None
 
-    @property
-    def url(self) -> str | None:
-        return self._url
 
-    @property
-    def running(self) -> bool:
-        return self._process is not None and self._process.returncode is None
+def get_domain() -> str | None:
+    return _domain
 
-    async def start(self, local_port: int) -> str:
-        """Start a quick tunnel pointing to local_port. Returns the public URL."""
-        if self.running:
-            return self._url
 
-        logger.info("Starting Cloudflare quick tunnel -> localhost:%d", local_port)
+async def start(token: str, domain: str) -> dict:
+    """Start a named Cloudflare tunnel. Returns {success, error?}."""
+    global _process, _token, _domain, _restart_task
 
-        self._process = await asyncio.create_subprocess_exec(
-            "cloudflared", "tunnel", "--url", f"http://localhost:{local_port}",
+    if is_running():
+        return {"success": True, "domain": _domain}
+
+    _token = token
+    _domain = domain
+
+    try:
+        _process = await asyncio.create_subprocess_exec(
+            "cloudflared", "tunnel", "run", "--token", token,
             "--no-autoupdate",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+        # Give it a moment to connect
+        await asyncio.sleep(3)
 
-        # cloudflared prints the URL to stderr
-        url = await self._read_url(self._process.stderr)
-        if not url:
-            await self.stop()
-            raise RuntimeError("Failed to get tunnel URL from cloudflared")
+        if _process.returncode is not None:
+            stderr = await _process.stderr.read()
+            error = stderr.decode(errors="replace").strip()[:300]
+            logger.error("Cloudflare tunnel exited immediately: %s", error)
+            _process = None
+            return {"success": False, "error": error or "Tunnel exited immediately"}
 
-        self._url = url
-        logger.info("Tunnel active at %s", self._url)
-        return self._url
+        logger.info("Cloudflare tunnel started for %s (pid %d)", domain, _process.pid)
 
-    async def _read_url(self, stream, timeout: float = 30.0) -> str | None:
-        """Read cloudflared stderr until we find the tunnel URL."""
-        pattern = re.compile(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com")
+        # Start auto-restart watcher
+        if _restart_task is None or _restart_task.done():
+            _restart_task = asyncio.create_task(_watch_and_restart())
+
+        return {"success": True, "domain": domain}
+
+    except FileNotFoundError:
+        return {"success": False, "error": "cloudflared not installed"}
+    except Exception as e:
+        logger.error("Failed to start Cloudflare tunnel: %s", e)
+        return {"success": False, "error": str(e)}
+
+
+async def stop():
+    """Stop the tunnel."""
+    global _process, _restart_task
+    if _restart_task and not _restart_task.done():
+        _restart_task.cancel()
+        _restart_task = None
+    if _process:
+        logger.info("Stopping Cloudflare tunnel")
         try:
-            deadline = asyncio.get_event_loop().time() + timeout
-            buffer = ""
-            while asyncio.get_event_loop().time() < deadline:
-                remaining = deadline - asyncio.get_event_loop().time()
-                try:
-                    chunk = await asyncio.wait_for(stream.read(1024), timeout=remaining)
-                except asyncio.TimeoutError:
-                    break
-                if not chunk:
-                    break
-                text = chunk.decode(errors="replace")
-                buffer += text
-                logger.debug("cloudflared: %s", text.strip())
-                match = pattern.search(buffer)
-                if match:
-                    return match.group(0)
-        except Exception as e:
-            logger.error("Error reading tunnel URL: %s", e)
-        return None
+            _process.terminate()
+            await asyncio.wait_for(_process.wait(), timeout=10)
+        except (asyncio.TimeoutError, ProcessLookupError):
+            _process.kill()
+        _process = None
 
-    async def stop(self):
-        """Stop the tunnel."""
-        if self._process:
-            logger.info("Stopping Cloudflare tunnel")
+
+async def _watch_and_restart():
+    """Watch the tunnel process and restart if it dies."""
+    global _process
+    while _token and _domain:
+        if _process:
+            await _process.wait()
+            logger.warning("Cloudflare tunnel exited (code %d), restarting in 5s...", _process.returncode)
+            _process = None
+        await asyncio.sleep(5)
+        if _token and _domain:
             try:
-                self._process.terminate()
-                await asyncio.wait_for(self._process.wait(), timeout=10)
-            except (asyncio.TimeoutError, ProcessLookupError):
-                self._process.kill()
-            self._process = None
-            self._url = None
+                _process = await asyncio.create_subprocess_exec(
+                    "cloudflared", "tunnel", "run", "--token", _token,
+                    "--no-autoupdate",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                logger.info("Cloudflare tunnel restarted (pid %d)", _process.pid)
+            except Exception as e:
+                logger.error("Failed to restart tunnel: %s", e)
+                await asyncio.sleep(30)
+
+
+def status() -> dict:
+    """Get tunnel status."""
+    return {
+        "running": is_running(),
+        "domain": _domain,
+        "method": "cloudflare",
+    }

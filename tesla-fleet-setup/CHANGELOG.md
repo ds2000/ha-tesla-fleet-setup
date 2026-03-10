@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-03-10
+
+### Added
+
+- **Cloudflare Tunnel fallback** — when DuckDNS reachability test fails
+  (ISP blocks port 443, double NAT), the wizard offers a Cloudflare Tunnel
+  option. User creates a named tunnel in Cloudflare Zero Trust, pastes the
+  token, and the add-on runs `cloudflared` as a persistent subprocess
+- Tunnel auto-restarts on crash and persists across add-on reboots
+- Step-by-step Cloudflare setup instructions in the wizard
+- `cloudflared` binary added back to Docker image (all architectures)
+- API endpoints: `/api/cloudflare/start`, `/api/cloudflare/stop`,
+  `/api/cloudflare/status`
+
+### Changed
+
+- DuckDNS remains the **primary** domain option (works for most users)
+- Cloudflare Tunnel section only appears when reachability test fails
+- Reachability test now works for both DuckDNS and Cloudflare contexts
+
 ## [0.6.13] - 2026-03-10
 
 ### Fixed

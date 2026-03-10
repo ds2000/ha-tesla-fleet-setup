@@ -17,6 +17,7 @@ import ha_discovery
 import keygen
 import proxy
 import tesla_api
+import tunnel
 from aiohttp import web
 
 # --- Logging setup: suppress credential leaks ---
@@ -118,6 +119,8 @@ async def api_status(request):
         "duckdns_subdomain": state.get("duckdns_subdomain"),
         "duckdns_https_running": duckdns.https_running(),
         "duckdns_has_cert": duckdns.has_cert(),
+        "cf_tunnel_domain": state.get("cf_tunnel_domain"),
+        "cf_tunnel_running": tunnel.is_running(),
     })
 
 
@@ -159,9 +162,13 @@ async def api_verify_url(request):
     if not url:
         return web.json_response({"error": "No public URL configured"}, status=400)
 
-    if state.get("url_method") == "duckdns":
+    method = state.get("url_method")
+    if method == "duckdns":
         # DuckDNS: test the local HTTPS server on port 443
         test_url = f"https://localhost:{duckdns.HTTPS_PORT}/.well-known/appspecific/com.tesla.3p.public-key.pem"
+    elif method == "cloudflare":
+        # Cloudflare tunnel: test the actual public URL (tunnel routes to our server)
+        test_url = f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"
     else:
         test_url = f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"
 
@@ -509,6 +516,37 @@ async def api_duckdns_start(request):
     return web.json_response({"success": True, "url": public_url, "domain": domain})
 
 
+async def api_cloudflare_start(request):
+    """Start a Cloudflare named tunnel."""
+    data = await request.json()
+    token = data.get("token", "").strip()
+    domain = data.get("domain", "").strip().lower()
+    if not token or not domain:
+        return web.json_response({"success": False, "error": "Token and domain are required"}, status=400)
+
+    result = await tunnel.start(token, domain)
+    if result["success"]:
+        public_url = f"https://{domain}"
+        state["public_key_url"] = public_url
+        state["url_method"] = "cloudflare"
+        state["cf_tunnel_token"] = token
+        state["cf_tunnel_domain"] = domain
+        state["step"] = max(state.get("step", 1), 2)
+        save_state()
+    return web.json_response(result)
+
+
+async def api_cloudflare_stop(request):
+    """Stop the Cloudflare tunnel."""
+    await tunnel.stop()
+    return web.json_response({"success": True})
+
+
+async def api_cloudflare_status(request):
+    """Get Cloudflare tunnel status."""
+    return web.json_response(tunnel.status())
+
+
 async def api_reset(request):
     """Reset wizard state (start over)."""
     global state
@@ -527,6 +565,7 @@ async def api_reset(request):
     save_state()
     await proxy_manager.stop()
     await duckdns.stop_all()
+    await tunnel.stop()
     logger.info("Wizard state reset")
     return web.json_response({"success": True})
 
@@ -571,6 +610,16 @@ async def on_startup(app):
         except Exception as e:
             logger.warning("DuckDNS startup failed: %s", e)
 
+    # Auto-start Cloudflare tunnel if configured
+    if state.get("cf_tunnel_token") and state.get("cf_tunnel_domain"):
+        cf_token = state["cf_tunnel_token"]
+        cf_domain = state["cf_tunnel_domain"]
+        result = await tunnel.start(cf_token, cf_domain)
+        if result["success"]:
+            logger.info("Cloudflare tunnel active: %s", cf_domain)
+        else:
+            logger.warning("Cloudflare tunnel startup failed: %s", result.get("error"))
+
     # Auto-start proxy if setup was previously completed
     if state.get("tokens") and proxy.proxy_available():
         logger.info("Setup previously completed — starting signing proxy")
@@ -585,6 +634,7 @@ async def on_shutdown(app):
     """Clean up proxy and DuckDNS on shutdown."""
     await proxy_manager.stop()
     await duckdns.stop_all()
+    await tunnel.stop()
 
 
 def create_app() -> web.Application:
@@ -619,6 +669,11 @@ def create_app() -> web.Application:
     app.router.add_post("/api/duckdns/ip", api_duckdns_ip)
     app.router.add_post("/api/duckdns/cert", api_duckdns_cert)
     app.router.add_post("/api/duckdns/start", api_duckdns_start)
+
+    # Cloudflare tunnel
+    app.router.add_post("/api/cloudflare/start", api_cloudflare_start)
+    app.router.add_post("/api/cloudflare/stop", api_cloudflare_stop)
+    app.router.add_get("/api/cloudflare/status", api_cloudflare_status)
 
     # Proxy management
     app.router.add_get("/api/proxy/status", api_proxy_status)
