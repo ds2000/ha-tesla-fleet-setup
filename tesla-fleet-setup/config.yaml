@@ -1,6 +1,6 @@
 name: "Tesla Fleet Setup"
 description: "Guided setup wizard and signing proxy for Tesla Fleet API integration with Home Assistant"
-version: "0.6.4"
+version: "0.6.5"
 slug: tesla-fleet-setup
 url: "https://github.com/ds2000/ha-tesla-fleet-setup"
 arch:
@@ -9,6 +9,7 @@ arch:
   - armv7
 init: false
 homeassistant_api: true
+host_network: true
 ingress: true
 ingress_port: 8099
 panel_icon: "mdi:car-electric"
