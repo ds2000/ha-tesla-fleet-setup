@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-03-10
+
+### Changed
+
+- **Automated Cloudflare Tunnel setup** — instead of manually creating a tunnel
+  in the Cloudflare dashboard, the wizard now does everything automatically:
+  1. User pastes a Cloudflare API token
+  2. Wizard fetches their domains and shows a dropdown
+  3. One click creates the tunnel, configures DNS, and starts cloudflared
+- New `cf_api.py` module handles Cloudflare API calls (tunnel CRUD, DNS records)
+- API endpoints: `/api/cloudflare/zones` (fetch domains),
+  `/api/cloudflare/auto-setup` (full automation)
+
 ## [0.7.0] - 2026-03-10
 
 ### Added

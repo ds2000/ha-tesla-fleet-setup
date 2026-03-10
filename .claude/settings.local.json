@@ -13,7 +13,7 @@
       "Bash(grep *)",
       "WebSearch",
       "WebFetch",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfeat: Cloudflare Tunnel fallback for ISP port blocking / double NAT\n\nDuckDNS stays as the primary domain option. When the reachability test\nfails \\(ISP blocks 443, double NAT like KPN modem + Orbi\\), the wizard\nnow shows a Cloudflare Tunnel alternative. User creates a named tunnel\nin Cloudflare Zero Trust, pastes the token, and cloudflared runs as a\npersistent subprocess with auto-restart.\n\n- cloudflared binary added back to Docker image\n- New tunnel.py: named tunnel management \\(start/stop/auto-restart\\)\n- API: /api/cloudflare/start, /stop, /status\n- Wizard: CF tunnel section appears when reachability fails\n- State persisted: tunnel auto-starts on add-on reboot\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.0 && git push origin main --tags)"
+      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfeat: automated Cloudflare Tunnel setup via API\n\nInstead of manually creating tunnels in the Cloudflare dashboard, the\nwizard now automates everything: user pastes an API token, picks their\ndomain from a dropdown, clicks \"Set Up Tunnel\" — and we create the\ntunnel, configure DNS, and start cloudflared automatically.\n\nNew cf_api.py module for Cloudflare API \\(tunnel CRUD, DNS records\\).\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.1 && git push origin main --tags)"
     ]
   }
 }

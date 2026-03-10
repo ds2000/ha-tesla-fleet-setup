@@ -768,39 +768,38 @@
       <!-- Cloudflare Tunnel fallback -->
       <div id="cf-tunnel-section" style="display:none">
         <h3 style="margin-top:24px">Alternative: Cloudflare Tunnel</h3>
-        <p class="subtitle">If port 443 is blocked, a Cloudflare Tunnel bypasses all port forwarding.
-          Requires a free Cloudflare account and a domain on Cloudflare (~&euro;1/year for a .xyz).</p>
+        <p class="subtitle">If port 443 is blocked (ISP restriction, double NAT), a Cloudflare Tunnel
+          bypasses all port forwarding. Requires a free
+          <a href="https://dash.cloudflare.com/sign-up" target="_blank" style="color:var(--accent)">Cloudflare account</a>
+          and a domain on Cloudflare (~&euro;1/year for a .xyz).</p>
 
-        <details open>
-          <summary>Setup instructions</summary>
-          <div class="details-content">
-            <ol style="line-height:1.8">
-              <li>Go to <a href="https://one.dash.cloudflare.com" target="_blank" style="color:var(--accent)">Cloudflare Zero Trust</a> &rarr; Networks &rarr; Tunnels</li>
-              <li>Click <strong>Create a tunnel</strong>, name it <code>ha-tesla</code></li>
-              <li>Skip the connector install step &mdash; just copy the <strong>tunnel token</strong></li>
-              <li>Add a <strong>Public Hostname</strong>:
-                <ul style="margin-top:4px">
-                  <li>Subdomain: <code>tesla</code> (or any name)</li>
-                  <li>Domain: your Cloudflare domain</li>
-                  <li>Service: <code>http://localhost:8099</code></li>
-                </ul>
-              </li>
-              <li>Paste the token and domain below</li>
-            </ol>
+        <div id="cf-setup-form">
+          <div class="info-box info" style="margin-bottom:16px">
+            <strong>One-time setup:</strong> Create a Cloudflare API token at
+            <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:var(--accent)">dash.cloudflare.com/profile/api-tokens</a>
+            with these permissions:<br>
+            &bull; Account &rarr; Cloudflare Tunnel &rarr; Edit<br>
+            &bull; Zone &rarr; DNS &rarr; Edit
           </div>
-        </details>
 
-        <div style="margin-top:16px">
-          <label style="display:block; margin-bottom:8px; color:var(--text-dim)">Tunnel Token</label>
-          <input type="text" id="cf-token" class="input" placeholder="eyJhIjoi...">
-          <label style="display:block; margin:12px 0 8px; color:var(--text-dim)">Domain (e.g. tesla.example.com)</label>
-          <input type="text" id="cf-domain" class="input" placeholder="tesla.yourdomain.com">
-        </div>
+          <label style="display:block; margin-bottom:8px; color:var(--text-dim)">Cloudflare API Token</label>
+          <input type="password" id="cf-api-token" class="input" placeholder="Paste your API token">
 
-        <p id="cf-status" style="margin-top:8px; display:none"></p>
+          <div id="cf-zone-picker" style="display:none; margin-top:12px">
+            <label style="display:block; margin-bottom:8px; color:var(--text-dim)">Domain</label>
+            <select id="cf-zone-select" class="input" style="padding:10px 14px">
+              <option value="">Select a domain...</option>
+            </select>
+            <label style="display:block; margin:12px 0 8px; color:var(--text-dim)">Subdomain (default: tesla)</label>
+            <input type="text" id="cf-subdomain" class="input" value="tesla" placeholder="tesla">
+          </div>
 
-        <div class="btn-row" style="margin-top:12px">
-          <button class="btn btn-primary" onclick="startCloudflare()" id="cf-start-btn">Connect Tunnel</button>
+          <p id="cf-status" style="margin-top:8px; display:none"></p>
+
+          <div class="btn-row" style="margin-top:12px">
+            <button class="btn btn-secondary" onclick="cfLoadZones()" id="cf-load-btn">Verify Token</button>
+            <button class="btn btn-primary" onclick="cfAutoSetup()" id="cf-setup-btn" style="display:none">Set Up Tunnel</button>
+          </div>
         </div>
 
         <!-- Cloudflare URL ready -->
@@ -1221,10 +1220,9 @@
           // Restore Cloudflare tunnel state
           if (data.url_method === 'cloudflare' && data.cf_tunnel_domain) {
             document.getElementById('cf-tunnel-section').style.display = 'block';
-            document.getElementById('cf-domain').value = data.cf_tunnel_domain;
+            document.getElementById('cf-setup-form').style.display = 'none';
             document.getElementById('cf-url-value').textContent = 'https://' + data.cf_tunnel_domain;
             document.getElementById('cf-ready').style.display = 'block';
-            document.getElementById('cf-start-btn').style.display = 'none';
           }
           goToStep(data.step);
         }
@@ -1680,38 +1678,96 @@
       btn.disabled = false;
     }
 
-    async function startCloudflare() {
-      const token = document.getElementById('cf-token').value.trim();
-      const domain = document.getElementById('cf-domain').value.trim().toLowerCase();
-      const status = document.getElementById('cf-status');
-      const btn = document.getElementById('cf-start-btn');
+    let _cfApiToken = '';
 
-      if (!token) { alert('Please enter the tunnel token'); return; }
-      if (!domain) { alert('Please enter your domain'); return; }
+    async function cfLoadZones() {
+      const apiToken = document.getElementById('cf-api-token').value.trim();
+      const status = document.getElementById('cf-status');
+      const btn = document.getElementById('cf-load-btn');
+
+      if (!apiToken) { alert('Please enter your Cloudflare API token'); return; }
 
       btn.disabled = true;
-      btn.textContent = 'Connecting...';
+      btn.textContent = 'Verifying...';
       status.style.display = 'block';
       status.style.color = 'var(--text-dim)';
-      status.textContent = 'Starting Cloudflare tunnel...';
+      status.textContent = 'Checking API token...';
 
       try {
-        const resp = await fetch('api/cloudflare/start', {
+        const resp = await fetch('api/cloudflare/zones', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({token, domain})
+          body: JSON.stringify({api_token: apiToken})
+        });
+        const data = await resp.json();
+        if (data.success && data.zones.length > 0) {
+          _cfApiToken = apiToken;
+          status.style.color = 'var(--success)';
+          status.textContent = 'Token valid — select your domain';
+          // Populate zone dropdown
+          const sel = document.getElementById('cf-zone-select');
+          sel.innerHTML = '<option value="">Select a domain...</option>';
+          data.zones.forEach(z => {
+            const opt = document.createElement('option');
+            opt.value = z.id + '|' + z.name;
+            opt.textContent = z.name;
+            sel.appendChild(opt);
+          });
+          document.getElementById('cf-zone-picker').style.display = 'block';
+          document.getElementById('cf-setup-btn').style.display = 'inline-block';
+          btn.style.display = 'none';
+        } else {
+          status.style.color = 'var(--error)';
+          status.textContent = data.error || 'No domains found';
+          btn.disabled = false;
+          btn.textContent = 'Retry';
+        }
+      } catch (e) {
+        status.style.color = 'var(--error)';
+        status.textContent = 'Error: ' + e.message;
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+      }
+    }
+
+    async function cfAutoSetup() {
+      const zoneVal = document.getElementById('cf-zone-select').value;
+      const subdomain = document.getElementById('cf-subdomain').value.trim().toLowerCase();
+      const status = document.getElementById('cf-status');
+      const btn = document.getElementById('cf-setup-btn');
+
+      if (!zoneVal) { alert('Please select a domain'); return; }
+      if (!subdomain) { alert('Please enter a subdomain'); return; }
+
+      const [zoneId, zoneName] = zoneVal.split('|');
+
+      btn.disabled = true;
+      btn.textContent = 'Setting up...';
+      status.style.display = 'block';
+      status.style.color = 'var(--text-dim)';
+      status.textContent = 'Creating tunnel, DNS record, and starting cloudflared...';
+
+      try {
+        const resp = await fetch('api/cloudflare/auto-setup', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            api_token: _cfApiToken,
+            zone_id: zoneId,
+            zone_name: zoneName,
+            subdomain: subdomain,
+          })
         });
         const data = await resp.json();
         if (data.success) {
           status.style.color = 'var(--success)';
-          status.textContent = 'Tunnel connected!';
-          // Show URL and verify section
-          document.getElementById('cf-url-value').textContent = 'https://' + domain;
+          status.textContent = 'Tunnel active!';
+          document.getElementById('cf-setup-form').style.display = 'none';
+          document.getElementById('cf-url-value').textContent = 'https://' + data.domain;
           document.getElementById('cf-ready').style.display = 'block';
-          btn.style.display = 'none';
         } else {
           status.style.color = 'var(--error)';
-          status.textContent = 'Failed: ' + (data.error || 'Unknown error');
+          status.textContent = 'Failed at ' + (data.step || '?') + ': ' + (data.error || 'Unknown error');
           btn.disabled = false;
           btn.textContent = 'Retry';
         }

@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import aiohttp
+import cf_api
 import duckdns
 import ha_credentials
 import ha_discovery
@@ -536,6 +537,63 @@ async def api_cloudflare_start(request):
     return web.json_response(result)
 
 
+async def api_cloudflare_zones(request):
+    """Fetch Cloudflare zones (domains) for the given API token."""
+    data = await request.json()
+    api_token = data.get("api_token", "").strip()
+    if not api_token:
+        return web.json_response({"success": False, "error": "API token required"}, status=400)
+
+    cf = cf_api.CloudflareAPI(api_token)
+    verify = await cf.verify_token()
+    if not verify["success"]:
+        return web.json_response({"success": False, "error": verify["error"]}, status=401)
+
+    zones = await cf.get_zones()
+    if not zones:
+        return web.json_response({"success": False, "error": "No domains found on this Cloudflare account"})
+    return web.json_response({"success": True, "zones": zones})
+
+
+async def api_cloudflare_auto_setup(request):
+    """Fully automated Cloudflare tunnel setup — create tunnel, DNS, start cloudflared."""
+    data = await request.json()
+    api_token = data.get("api_token", "").strip()
+    zone_id = data.get("zone_id", "").strip()
+    zone_name = data.get("zone_name", "").strip()
+    subdomain = data.get("subdomain", "tesla").strip().lower()
+
+    if not api_token or not zone_id or not zone_name:
+        return web.json_response({"success": False, "error": "Missing required fields"}, status=400)
+
+    # Run automated setup (create tunnel, configure, DNS)
+    result = await cf_api.auto_setup(api_token, zone_id, zone_name, subdomain)
+    if not result["success"]:
+        return web.json_response(result)
+
+    # Start cloudflared with the tunnel token
+    domain = result["domain"]
+    tunnel_token = result["tunnel_token"]
+    start_result = await tunnel.start(tunnel_token, domain)
+    if not start_result["success"]:
+        return web.json_response({
+            "success": False,
+            "error": f"Tunnel created but cloudflared failed to start: {start_result.get('error')}",
+            "step": "cloudflared",
+        })
+
+    # Save state
+    public_url = f"https://{domain}"
+    state["public_key_url"] = public_url
+    state["url_method"] = "cloudflare"
+    state["cf_tunnel_token"] = tunnel_token
+    state["cf_tunnel_domain"] = domain
+    state["step"] = max(state.get("step", 1), 2)
+    save_state()
+
+    return web.json_response({"success": True, "domain": domain})
+
+
 async def api_cloudflare_stop(request):
     """Stop the Cloudflare tunnel."""
     await tunnel.stop()
@@ -671,6 +729,8 @@ def create_app() -> web.Application:
     app.router.add_post("/api/duckdns/start", api_duckdns_start)
 
     # Cloudflare tunnel
+    app.router.add_post("/api/cloudflare/zones", api_cloudflare_zones)
+    app.router.add_post("/api/cloudflare/auto-setup", api_cloudflare_auto_setup)
     app.router.add_post("/api/cloudflare/start", api_cloudflare_start)
     app.router.add_post("/api/cloudflare/stop", api_cloudflare_stop)
     app.router.add_get("/api/cloudflare/status", api_cloudflare_status)
