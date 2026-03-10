@@ -736,7 +736,10 @@
           Port forwarding and HTTPS certificates are automatically maintained.
         </div>
 
-        <p id="upnp-warning" class="info-box warning" style="display:none"></p>
+        <div id="upnp-warning" class="info-box warning" style="display:none">
+          <span id="upnp-warning-text"></span>
+          <button class="btn btn-secondary btn-small" style="margin-top:8px" id="upnp-retry-btn" onclick="retryUpnp()">Retry UPnP</button>
+        </div>
 
         <div class="status-row" id="verify-status">
           <div class="status-icon pending" id="verify-icon">?</div>
@@ -1508,7 +1511,7 @@
         if (upnpStep.classList.contains('warn')) {
           const warn = document.getElementById('upnp-warning');
           if (warn) {
-            warn.textContent = 'UPnP port forwarding was not available. Please forward port 443 on your router to your Home Assistant IP.';
+            document.getElementById('upnp-warning-text').textContent = 'UPnP port forwarding was not available. Please forward port 443 on your router to your Home Assistant IP.';
             warn.style.display = 'block';
           }
         }
@@ -1532,6 +1535,31 @@
       document.getElementById('public-url-value').textContent = publicKeyUrl;
       document.getElementById('origin-value').textContent = publicKeyUrl;
       document.getElementById('redirect-value').textContent = publicKeyUrl + '/oauth/callback';
+    }
+
+    async function retryUpnp() {
+      const btn = document.getElementById('upnp-retry-btn');
+      const warnText = document.getElementById('upnp-warning-text');
+      btn.disabled = true;
+      btn.textContent = 'Retrying…';
+      warnText.textContent = 'Attempting UPnP port forward…';
+      try {
+        const r = await fetch(BASE + 'api/duckdns/upnp', {method: 'POST'});
+        const data = await r.json();
+        if (data.success) {
+          document.getElementById('upnp-warning').className = 'info-box success';
+          warnText.textContent = 'UPnP port forward successful — port 443 is open.';
+          btn.style.display = 'none';
+        } else {
+          warnText.textContent = 'UPnP still unavailable. Please forward port 443 on your router to your Home Assistant IP.';
+          btn.textContent = 'Retry UPnP';
+          btn.disabled = false;
+        }
+      } catch (e) {
+        warnText.textContent = 'Error: ' + e.message;
+        btn.textContent = 'Retry UPnP';
+        btn.disabled = false;
+      }
     }
 
     async function verifyUrl() {
