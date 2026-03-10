@@ -42,14 +42,14 @@ async def start(token: str, domain: str) -> dict:
             "cloudflared", "tunnel", "run", "--token", token,
             "--no-autoupdate",
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
         )
-        # Give it a moment to connect
-        await asyncio.sleep(3)
+        # Give it time to connect (cloudflared can take a few seconds)
+        await asyncio.sleep(5)
 
         if _process.returncode is not None:
-            stderr = await _process.stderr.read()
-            error = stderr.decode(errors="replace").strip()[:300]
+            output = await _process.stdout.read()
+            error = output.decode(errors="replace").strip()[-500:]
             logger.error("Cloudflare tunnel exited immediately: %s", error)
             _process = None
             return {"success": False, "error": error or "Tunnel exited immediately"}
@@ -100,7 +100,7 @@ async def _watch_and_restart():
                     "cloudflared", "tunnel", "run", "--token", _token,
                     "--no-autoupdate",
                     stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
                 )
                 logger.info("Cloudflare tunnel restarted (pid %d)", _process.pid)
             except Exception as e:
