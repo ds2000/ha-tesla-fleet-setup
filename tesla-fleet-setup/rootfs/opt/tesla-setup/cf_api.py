@@ -9,6 +9,7 @@ Automates:
 
 Requires a Cloudflare API token with permissions:
   - Account > Cloudflare Tunnel > Edit
+  - Zone > Zone > Read
   - Zone > DNS > Edit
 """
 
