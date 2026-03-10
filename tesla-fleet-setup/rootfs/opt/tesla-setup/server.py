@@ -437,35 +437,50 @@ async def api_duckdns_verify(request):
     return web.json_response(result)
 
 
-async def api_duckdns_setup(request):
-    """Configure DuckDNS: update IP, obtain cert, start HTTPS server."""
+async def api_duckdns_upnp(request):
+    """Try UPnP port forwarding for port 443."""
+    result = await duckdns.open_port_upnp()
+    return web.json_response(result)
+
+
+async def api_duckdns_ip(request):
+    """Update DuckDNS IP address."""
+    data = await request.json()
+    subdomain = data.get("subdomain", "").strip().lower()
+    token = data.get("token", "").strip()
+    if not subdomain or not token:
+        return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
+    ip_ok = await duckdns.update_ip(subdomain, token)
+    if not ip_ok:
+        return web.json_response({"success": False, "error": "DuckDNS IP update failed — check token"}, status=400)
+    return web.json_response({"success": True})
+
+
+async def api_duckdns_cert(request):
+    """Obtain Let's Encrypt certificate via DNS-01."""
+    data = await request.json()
+    subdomain = data.get("subdomain", "").strip().lower()
+    token = data.get("token", "").strip()
+    if not subdomain or not token:
+        return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
+    result = await duckdns.obtain_cert(subdomain, token)
+    return web.json_response(result, status=200 if result["success"] else 500)
+
+
+async def api_duckdns_start(request):
+    """Start HTTPS server + background services and save state."""
     data = await request.json()
     subdomain = data.get("subdomain", "").strip().lower()
     token = data.get("token", "").strip()
     if not subdomain or not token:
         return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
 
-    # 1. Update DuckDNS IP
-    ip_ok = await duckdns.update_ip(subdomain, token)
-    if not ip_ok:
-        return web.json_response({"success": False, "error": "DuckDNS IP update failed — check token"}, status=400)
-
-    # 2. Try UPnP to auto-forward port 443
-    upnp_result = await duckdns.open_port_upnp()
-
-    # 3. Obtain Let's Encrypt certificate
-    cert_result = await duckdns.obtain_cert(subdomain, token)
-    if not cert_result["success"]:
-        return web.json_response(cert_result, status=500)
-
-    # 4. Start HTTPS server + IP updater
     https_ok = await duckdns.start_https_server()
     if not https_ok:
         return web.json_response({"success": False, "error": "Failed to start HTTPS server"}, status=500)
     duckdns.start_updater(subdomain, token)
     duckdns.start_renewal_checker(subdomain, token)
 
-    # 5. Save state
     domain = f"{subdomain}.duckdns.org"
     public_url = f"https://{domain}"
     state["duckdns_subdomain"] = subdomain
@@ -475,12 +490,7 @@ async def api_duckdns_setup(request):
     save_state()
 
     logger.info("DuckDNS configured: %s (HTTPS serving .well-known)", domain)
-    return web.json_response({
-        "success": True,
-        "url": public_url,
-        "domain": domain,
-        "upnp": upnp_result,
-    })
+    return web.json_response({"success": True, "url": public_url, "domain": domain})
 
 
 async def api_reset(request):
@@ -588,7 +598,10 @@ def create_app() -> web.Application:
 
     # DuckDNS
     app.router.add_post("/api/duckdns/verify", api_duckdns_verify)
-    app.router.add_post("/api/duckdns/setup", api_duckdns_setup)
+    app.router.add_post("/api/duckdns/upnp", api_duckdns_upnp)
+    app.router.add_post("/api/duckdns/ip", api_duckdns_ip)
+    app.router.add_post("/api/duckdns/cert", api_duckdns_cert)
+    app.router.add_post("/api/duckdns/start", api_duckdns_start)
 
     # Proxy management
     app.router.add_get("/api/proxy/status", api_proxy_status)

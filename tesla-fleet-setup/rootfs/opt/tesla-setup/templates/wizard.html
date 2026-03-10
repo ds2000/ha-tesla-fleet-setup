@@ -254,6 +254,50 @@
 
     .input::placeholder { color: #555; }
 
+    /* Setup progress checklist */
+    .setup-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .setup-step:last-child { border-bottom: none; }
+
+    .setup-step.active { color: var(--text); }
+    .setup-step.done { color: var(--success); }
+    .setup-step.warn { color: var(--warning); }
+    .setup-step.fail { color: var(--error); }
+
+    .setup-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.85rem;
+    }
+
+    .dot-pending {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    .spinner-small {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
     /* Info boxes */
     .info-box {
       padding: 14px 16px;
@@ -636,16 +680,43 @@
             <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">4</span>
             <span style="font-weight:600">Activate</span>
           </div>
-          <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:12px">
-            Click below and we'll handle the rest &mdash; port forwarding (UPnP), IP update,
-            HTTPS certificate, and start serving your public key.
-          </p>
 
-          <div class="btn-row">
-            <button class="btn btn-primary" onclick="setupDuckDNS()" id="duckdns-btn">
-              <span id="duckdns-btn-text">Activate DuckDNS</span>
-            </button>
+          <!-- Before activation -->
+          <div id="duckdns-pre-activate">
+            <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:12px">
+              Click below and we'll set everything up automatically.
+            </p>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="setupDuckDNS()" id="duckdns-btn">
+                <span id="duckdns-btn-text">Activate DuckDNS</span>
+              </button>
+            </div>
           </div>
+
+          <!-- Progress checklist (shown during activation) -->
+          <div id="duckdns-progress" style="display:none">
+            <div class="setup-step" id="step-verify">
+              <span class="setup-icon" id="step-verify-icon"><span class="spinner-small"></span></span>
+              <span>Verifying DuckDNS credentials</span>
+            </div>
+            <div class="setup-step" id="step-upnp">
+              <span class="setup-icon" id="step-upnp-icon"><span class="dot-pending"></span></span>
+              <span id="step-upnp-text">Opening port 443 via UPnP</span>
+            </div>
+            <div class="setup-step" id="step-ip">
+              <span class="setup-icon" id="step-ip-icon"><span class="dot-pending"></span></span>
+              <span>Updating DuckDNS IP address</span>
+            </div>
+            <div class="setup-step" id="step-cert">
+              <span class="setup-icon" id="step-cert-icon"><span class="dot-pending"></span></span>
+              <span>Getting HTTPS certificate (takes ~60 seconds)</span>
+            </div>
+            <div class="setup-step" id="step-https">
+              <span class="setup-icon" id="step-https-icon"><span class="dot-pending"></span></span>
+              <span>Starting HTTPS server</span>
+            </div>
+          </div>
+
           <p id="duckdns-status" style="display:none;margin-top:8px;font-size:0.85rem"></p>
         </div>
       </div>
@@ -1338,12 +1409,31 @@
       });
     }
 
+    function setStepState(id, state, extraText) {
+      const el = document.getElementById(id);
+      const icon = document.getElementById(id + '-icon');
+      el.className = 'setup-step ' + state;
+      if (state === 'active') {
+        icon.innerHTML = '<span class="spinner-small"></span>';
+      } else if (state === 'done') {
+        icon.innerHTML = '&#10003;';
+      } else if (state === 'warn') {
+        icon.innerHTML = '&#9888;';
+      } else if (state === 'fail') {
+        icon.innerHTML = '&#10007;';
+      }
+      if (extraText) {
+        const textEl = document.getElementById(id + '-text');
+        if (textEl) textEl.textContent = extraText;
+      }
+    }
+
     async function setupDuckDNS() {
-      const btn = document.getElementById('duckdns-btn');
-      const text = document.getElementById('duckdns-btn-text');
-      const status = document.getElementById('duckdns-status');
       const subdomain = document.getElementById('duckdns-subdomain').value.trim().toLowerCase();
       const token = document.getElementById('duckdns-token').value.trim();
+      const status = document.getElementById('duckdns-status');
+      const body = JSON.stringify({ subdomain, token });
+      const headers = { 'Content-Type': 'application/json' };
 
       if (!subdomain || !token) {
         status.style.display = 'block';
@@ -1352,52 +1442,77 @@
         return;
       }
 
-      btn.disabled = true;
-      text.innerHTML = '<span class="spinner"></span> Verifying credentials...';
-      status.style.display = 'block';
-      status.style.color = 'var(--text-muted)';
-      status.textContent = 'Checking DuckDNS credentials...';
+      // Switch to progress view
+      document.getElementById('duckdns-pre-activate').style.display = 'none';
+      document.getElementById('duckdns-progress').style.display = 'block';
+      status.style.display = 'none';
 
       try {
-        // Verify first
-        let resp = await fetch('api/duckdns/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subdomain, token }),
-        });
+        // 1. Verify credentials
+        setStepState('step-verify', 'active');
+        let resp = await fetch('api/duckdns/verify', { method: 'POST', headers, body });
         let data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Invalid credentials — make sure you created the subdomain on DuckDNS first');
+        setStepState('step-verify', 'done');
 
-        status.textContent = 'Opening port via UPnP, updating IP, and requesting certificate (~60 seconds)...';
-        text.innerHTML = '<span class="spinner"></span> Setting up...';
-
-        // Full setup: UPnP + IP update + cert + HTTPS server
-        resp = await fetch('api/duckdns/setup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subdomain, token }),
-        });
+        // 2. UPnP port forward
+        setStepState('step-upnp', 'active');
+        resp = await fetch('api/duckdns/upnp', { method: 'POST' });
         data = await resp.json();
-        if (!data.success) throw new Error(data.error || 'Setup failed');
+        if (data.success) {
+          setStepState('step-upnp', 'done');
+        } else {
+          setStepState('step-upnp', 'warn', 'Port forward skipped — ' + (data.error || 'UPnP unavailable'));
+        }
 
+        // 3. Update IP
+        setStepState('step-ip', 'active');
+        resp = await fetch('api/duckdns/ip', { method: 'POST', headers, body });
+        data = await resp.json();
+        if (!data.success) throw new Error(data.error || 'IP update failed');
+        setStepState('step-ip', 'done');
+
+        // 4. Get certificate (slow step)
+        setStepState('step-cert', 'active');
+        resp = await fetch('api/duckdns/cert', { method: 'POST', headers, body });
+        data = await resp.json();
+        if (!data.success) throw new Error(data.error || 'Certificate request failed');
+        setStepState('step-cert', 'done');
+
+        // 5. Start HTTPS server
+        setStepState('step-https', 'active');
+        resp = await fetch('api/duckdns/start', { method: 'POST', headers, body });
+        data = await resp.json();
+        if (!data.success) throw new Error(data.error || 'Failed to start HTTPS server');
+        setStepState('step-https', 'done');
+
+        // Success — show URL
         publicKeyUrl = data.url;
         urlMethod = 'duckdns';
         document.getElementById('duckdns-setup').style.display = 'none';
         updateUrlDisplay();
 
-        // Show UPnP result as warning if it failed
-        if (data.upnp && !data.upnp.success) {
+        // Show UPnP warning if it was skipped
+        const upnpStep = document.getElementById('step-upnp');
+        if (upnpStep.classList.contains('warn')) {
           const warn = document.getElementById('upnp-warning');
           if (warn) {
-            warn.textContent = 'Port 443 could not be auto-forwarded (' + (data.upnp.error || 'UPnP unavailable') + '). Please forward port 443 on your router to your Home Assistant IP.';
+            warn.textContent = 'UPnP port forwarding was not available. Please forward port 443 on your router to your Home Assistant IP.';
             warn.style.display = 'block';
           }
         }
       } catch (e) {
-        text.textContent = 'Retry';
-        btn.disabled = false;
+        // Mark current active step as failed
+        document.querySelectorAll('.setup-step.active').forEach(el => {
+          setStepState(el.id, 'fail');
+        });
+        status.style.display = 'block';
         status.style.color = 'var(--error)';
         status.textContent = 'Error: ' + e.message;
+        // Show retry button
+        document.getElementById('duckdns-pre-activate').style.display = 'block';
+        document.getElementById('duckdns-btn-text').textContent = 'Retry';
+        document.getElementById('duckdns-btn').disabled = false;
       }
     }
 

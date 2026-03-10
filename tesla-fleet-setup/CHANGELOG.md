@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-03-10
+
+### Changed
+
+- DuckDNS activation now shows step-by-step progress with live checkmarks:
+  verify credentials, UPnP port forward, IP update, certificate, HTTPS server.
+  Each step shows a spinner while active and a tick/warning/cross when done
+- Split monolithic `/api/duckdns/setup` into individual endpoints (`/upnp`,
+  `/ip`, `/cert`, `/start`) for granular progress reporting
+- UPnP failure shows a warning (not an error) since manual port forwarding
+  is a valid fallback
+
 ## [0.6.2] - 2026-03-09
 
 ### Fixed
