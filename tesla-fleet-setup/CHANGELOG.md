@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.12] - 2026-03-10
+
+### Fixed
+
+- **UPnP rewritten in pure Python** — replaced `upnpc` CLI with direct SSDP
+  multicast discovery + SOAP `AddPortMapping` calls. Fixes Netgear Orbi (and
+  similar mesh routers) which `miniupnpc` reports as "(not connected?) IGD"
+  despite working UPnP. The new implementation discovers the IGD, parses the
+  XML root description for the `WANIPConnection` control URL, and calls the
+  SOAP action directly — bypassing miniupnpc's broken connection status check
+
 ## [0.6.11] - 2026-03-10
 
 ### Fixed

@@ -13,8 +13,11 @@ import asyncio
 import logging
 import os
 import shutil
+import socket
 import ssl
 from pathlib import Path
+from urllib.parse import urlparse
+from xml.etree import ElementTree
 
 import aiohttp
 from aiohttp import web
@@ -42,9 +45,7 @@ _https_runner = None
 
 def _find_lan_ip() -> str | None:
     """Find the LAN IP address (non-loopback, non-docker) for UPnP binding."""
-    import socket
     try:
-        # Connect to an external IP to determine which interface has the default route
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(2)
         s.connect(("8.8.8.8", 80))
@@ -55,58 +56,146 @@ def _find_lan_ip() -> str | None:
         return None
 
 
-async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
-    """Try to open a port on the router via UPnP. Returns {success, error?}."""
+def _ssdp_discover(lan_ip: str | None, timeout: float = 5.0) -> str | None:
+    """Send SSDP M-SEARCH and return the first IGD location URL found."""
+    ssdp_msg = (
+        "M-SEARCH * HTTP/1.1\r\n"
+        "HOST: 239.255.255.250:1900\r\n"
+        'MAN: "ssdp:discover"\r\n'
+        "MX: 3\r\n"
+        "ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n"
+        "\r\n"
+    )
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock.settimeout(timeout)
     try:
-        # Find the LAN IP to bind UPnP discovery to the right interface
+        # Bind to LAN interface if known
+        if lan_ip:
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
+                            socket.inet_aton(lan_ip))
+            sock.bind((lan_ip, 0))
+
+        sock.sendto(ssdp_msg.encode(), ("239.255.255.250", 1900))
+        while True:
+            try:
+                data, _ = sock.recvfrom(4096)
+                response = data.decode(errors="replace")
+                for line in response.splitlines():
+                    if line.lower().startswith("location:"):
+                        return line.split(":", 1)[1].strip()
+            except socket.timeout:
+                break
+    finally:
+        sock.close()
+    return None
+
+
+async def _find_control_url(location: str) -> str | None:
+    """Fetch IGD root description XML and find the WANIPConnection control URL."""
+    try:
+        async with aiohttp.ClientSession() as session, session.get(location, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status != 200:
+                return None
+            xml_text = await resp.text()
+
+        root = ElementTree.fromstring(xml_text)  # noqa: S314 — trusted local network device
+
+        # Search for WANIPConnection or WANPPPConnection service
+        for service in root.iter("{urn:schemas-upnp-org:device-1-0}service"):
+            stype = service.findtext("{urn:schemas-upnp-org:device-1-0}serviceType", "")
+            if "WANIPConnection" in stype or "WANPPPConnection" in stype:
+                control = service.findtext("{urn:schemas-upnp-org:device-1-0}controlURL", "")
+                if control:
+                    parsed = urlparse(location)
+                    base = f"{parsed.scheme}://{parsed.netloc}"
+                    if control.startswith("/"):
+                        return base + control
+                    return base + "/" + control
+    except Exception as e:
+        logger.warning("UPnP: failed to parse root description: %s", e)
+    return None
+
+
+async def _soap_add_port_mapping(control_url: str, port: int, lan_ip: str, description: str = "HA Tesla Fleet") -> dict:
+    """Call AddPortMapping via UPnP SOAP action."""
+    # Try both WANIPConnection and WANPPPConnection service types
+    for service_type in [
+        "urn:schemas-upnp-org:service:WANIPConnection:1",
+        "urn:schemas-upnp-org:service:WANPPPConnection:1",
+    ]:
+        soap_body = (
+            '<?xml version="1.0"?>'
+            '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
+            's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">'
+            "<s:Body>"
+            f'<u:AddPortMapping xmlns:u="{service_type}">'
+            "<NewRemoteHost></NewRemoteHost>"
+            f"<NewExternalPort>{port}</NewExternalPort>"
+            "<NewProtocol>TCP</NewProtocol>"
+            f"<NewInternalPort>{port}</NewInternalPort>"
+            f"<NewInternalClient>{lan_ip}</NewInternalClient>"
+            "<NewEnabled>1</NewEnabled>"
+            f"<NewPortMappingDescription>{description}</NewPortMappingDescription>"
+            "<NewLeaseDuration>3600</NewLeaseDuration>"
+            "</u:AddPortMapping>"
+            "</s:Body>"
+            "</s:Envelope>"
+        )
+        headers = {
+            "Content-Type": "text/xml; charset=utf-8",
+            "SOAPAction": f'"{service_type}#AddPortMapping"',
+        }
+        try:
+            async with aiohttp.ClientSession() as session, session.post(
+                control_url, data=soap_body, headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                body = await resp.text()
+                if resp.status == 200 or "<errorCode>718</errorCode>" in body:
+                    # 718 = ConflictInMappingEntry (already mapped) — that's fine
+                    logger.info("UPnP: port %d mapped via %s", port, service_type)
+                    return {"success": True}
+                logger.debug("UPnP SOAP response (%d): %s", resp.status, body[:200])
+        except Exception as e:
+            logger.debug("UPnP SOAP failed for %s: %s", service_type, e)
+
+    return {"success": False, "error": "SOAP AddPortMapping failed on all service types"}
+
+
+async def open_port_upnp(port: int = HTTPS_PORT) -> dict:
+    """Try to open a port on the router via UPnP IGD. Uses pure Python SSDP + SOAP."""
+    try:
         lan_ip = _find_lan_ip()
         logger.info("UPnP: detected LAN IP: %s", lan_ip)
+        if not lan_ip:
+            return {"success": False, "error": "Could not detect LAN IP address"}
 
-        # Log network interfaces for diagnostics
-        iface_proc = await asyncio.create_subprocess_exec(
-            "ip", "-4", "addr", "show",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        # SSDP discovery — find IGD device
+        location = await asyncio.get_event_loop().run_in_executor(
+            None, _ssdp_discover, lan_ip, 5.0
         )
-        iface_out, _ = await asyncio.wait_for(iface_proc.communicate(), timeout=5)
-        logger.info("Network interfaces:\n%s", iface_out.decode().strip()[:500])
+        if not location:
+            logger.warning("UPnP: no IGD device found via SSDP")
+            return {"success": False, "error": "No UPnP router found on the network"}
 
-        # Build upnpc command — use -m <lan_ip> to bind to the correct interface
-        base_cmd = ["upnpc"]
-        if lan_ip:
-            base_cmd += ["-m", lan_ip]
+        logger.info("UPnP: found IGD at %s", location)
 
-        # First, discover IGD devices
-        disc = await asyncio.create_subprocess_exec(
-            *base_cmd, "-l",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        d_out, d_err = await asyncio.wait_for(disc.communicate(), timeout=20)
-        disc_output = d_out.decode() + d_err.decode()
-        logger.info("UPnP discovery output:\n%s", disc_output.strip()[:500])
+        # Parse the root description XML to find the control URL
+        control_url = await _find_control_url(location)
+        if not control_url:
+            logger.warning("UPnP: could not find WANIPConnection control URL in %s", location)
+            return {"success": False, "error": f"Found router at {location} but no port mapping service"}
 
-        # Now try the actual port forward
-        proc = await asyncio.create_subprocess_exec(
-            *base_cmd, "-r", str(port), "TCP",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
-        output = stdout.decode() + stderr.decode()
+        logger.info("UPnP: control URL: %s", control_url)
 
-        if proc.returncode == 0:
-            logger.info("UPnP: port %d forwarded successfully", port)
-            return {"success": True}
+        # Add the port mapping via SOAP
+        result = await _soap_add_port_mapping(control_url, port, lan_ip)
+        if result["success"]:
+            logger.info("UPnP: port %d forwarded successfully via %s", port, control_url)
+        return result
 
-        logger.warning("UPnP port forward failed (exit %d): %s", proc.returncode, output.strip()[:300])
-        return {"success": False, "error": output.strip()[:300]}
-    except asyncio.TimeoutError:
-        logger.warning("UPnP: timed out trying to open port %d", port)
-        return {"success": False, "error": "UPnP discovery timed out — router may not support UPnP"}
-    except FileNotFoundError:
-        return {"success": False, "error": "upnpc not installed"}
     except Exception as e:
+        logger.warning("UPnP error: %s", e)
         return {"success": False, "error": str(e)}
 
 
