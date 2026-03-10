@@ -556,44 +556,84 @@ async def api_cloudflare_zones(request):
 
 
 async def api_cloudflare_auto_setup(request):
-    """Fully automated Cloudflare tunnel setup — create tunnel, DNS, start cloudflared."""
+    """Step-by-step Cloudflare tunnel setup. Returns completed_steps list for progress UI."""
     data = await request.json()
     api_token = data.get("api_token", "").strip()
     zone_id = data.get("zone_id", "").strip()
     zone_name = data.get("zone_name", "").strip()
     subdomain = data.get("subdomain", "tesla").strip().lower()
-    account_id = data.get("account_id", "").strip()
+    account_id = data.get("account_id", "").strip() or None
 
     if not api_token or not zone_id or not zone_name:
         return web.json_response({"success": False, "error": "Missing required fields"}, status=400)
 
-    # Run automated setup (create tunnel, configure, DNS)
-    result = await cf_api.auto_setup(api_token, zone_id, zone_name, subdomain,
-                                      account_id=account_id or None)
-    if not result["success"]:
-        return web.json_response(result)
+    cf = cf_api.CloudflareAPI(api_token)
+    completed = []
 
-    # Start cloudflared with the tunnel token
-    domain = result["domain"]
-    tunnel_token = result["tunnel_token"]
-    start_result = await tunnel.start(tunnel_token, domain)
+    # Step 1: Verify token
+    verify = await cf.verify_token()
+    if not verify["success"]:
+        return web.json_response({"success": False, "error": verify["error"],
+                                   "step": "verify", "completed_steps": completed})
+    completed.append("verify")
+
+    # Step 2: Create tunnel
+    if not account_id:
+        account_id = await cf.get_account_id()
+    if not account_id:
+        zones = await cf.get_zones()
+        for z in zones:
+            if z.get("account_id"):
+                account_id = z["account_id"]
+                break
+    if not account_id:
+        return web.json_response({"success": False, "error": "No Cloudflare account found",
+                                   "step": "tunnel", "completed_steps": completed})
+
+    tunnel_result = await cf.create_tunnel(account_id, "ha-tesla-fleet")
+    if "error" in tunnel_result:
+        return web.json_response({"success": False, "error": tunnel_result["error"],
+                                   "step": "tunnel", "completed_steps": completed})
+    tunnel_id = tunnel_result["id"]
+    tunnel_token = tunnel_result["token"]
+    completed.append("tunnel")
+
+    hostname = f"{subdomain}.{zone_name}" if subdomain else zone_name
+
+    # Step 3: Configure tunnel ingress
+    config = await cf.configure_tunnel(account_id, tunnel_id, hostname)
+    if not config["success"]:
+        return web.json_response({"success": False, "error": config["error"],
+                                   "step": "config", "completed_steps": completed})
+    completed.append("config")
+
+    # Step 4: Create DNS record
+    dns = await cf.create_dns_record(zone_id, subdomain, tunnel_id, zone_name)
+    if not dns["success"]:
+        return web.json_response({"success": False, "error": dns["error"],
+                                   "step": "dns", "completed_steps": completed})
+    completed.append("dns")
+
+    # Step 5: Start cloudflared
+    start_result = await tunnel.start(tunnel_token, hostname)
     if not start_result["success"]:
         return web.json_response({
             "success": False,
-            "error": f"Tunnel created but cloudflared failed to start: {start_result.get('error')}",
-            "step": "cloudflared",
+            "error": start_result.get("error", "cloudflared failed to start"),
+            "step": "start", "completed_steps": completed,
         })
+    completed.append("start")
 
     # Save state
-    public_url = f"https://{domain}"
+    public_url = f"https://{hostname}"
     state["public_key_url"] = public_url
     state["url_method"] = "cloudflare"
     state["cf_tunnel_token"] = tunnel_token
-    state["cf_tunnel_domain"] = domain
+    state["cf_tunnel_domain"] = hostname
     state["step"] = max(state.get("step", 1), 2)
     save_state()
 
-    return web.json_response({"success": True, "domain": domain})
+    return web.json_response({"success": True, "domain": hostname, "completed_steps": completed})
 
 
 async def api_cloudflare_stop(request):

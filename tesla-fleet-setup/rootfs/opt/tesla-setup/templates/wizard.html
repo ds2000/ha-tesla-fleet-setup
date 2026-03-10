@@ -140,6 +140,11 @@
     .status-icon.running { background: var(--warning); animation: pulse 1.5s infinite; }
     .status-icon.success { background: var(--success); }
     .status-icon.error { background: var(--error); }
+    .cf-step { padding: 6px 0; color: var(--text-dim); font-size: 0.95rem; }
+    .cf-step.active { color: var(--text); }
+    .cf-step.done { color: var(--success); }
+    .cf-step.failed { color: var(--error); }
+    .cf-step-icon { display: inline-block; width: 20px; text-align: center; }
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
@@ -796,6 +801,15 @@
           </div>
 
           <p id="cf-status" style="margin-top:8px; display:none"></p>
+
+          <!-- Step-by-step progress for tunnel setup -->
+          <div id="cf-progress" style="display:none; margin-top:12px">
+            <div class="cf-step" id="cf-step-verify"><span class="cf-step-icon">⏳</span> Verifying API token</div>
+            <div class="cf-step" id="cf-step-tunnel"><span class="cf-step-icon">⏳</span> Creating tunnel</div>
+            <div class="cf-step" id="cf-step-config"><span class="cf-step-icon">⏳</span> Configuring tunnel routes</div>
+            <div class="cf-step" id="cf-step-dns"><span class="cf-step-icon">⏳</span> Creating DNS record</div>
+            <div class="cf-step" id="cf-step-start"><span class="cf-step-icon">⏳</span> Starting cloudflared</div>
+          </div>
 
           <div class="btn-row" style="margin-top:12px">
             <button class="btn btn-secondary" onclick="cfLoadZones()" id="cf-load-btn">Verify Token</button>
@@ -1726,6 +1740,20 @@
       }
     }
 
+    function cfSetStepState(stepId, state) {
+      const el = document.getElementById('cf-step-' + stepId);
+      if (!el) return;
+      const icon = el.querySelector('.cf-step-icon');
+      el.className = 'cf-step ' + state;
+      if (state === 'active') icon.textContent = '⏳';
+      else if (state === 'done') icon.textContent = '✓';
+      else if (state === 'failed') icon.textContent = '✗';
+    }
+
+    function cfMarkCompleted(steps) {
+      steps.forEach(s => cfSetStepState(s, 'done'));
+    }
+
     async function cfAutoSetup() {
       const zoneVal = document.getElementById('cf-zone-select').value;
       const subdomain = document.getElementById('cf-subdomain').value.trim().toLowerCase();
@@ -1741,9 +1769,17 @@
 
       btn.disabled = true;
       btn.textContent = 'Setting up...';
-      status.style.display = 'block';
-      status.style.color = 'var(--text-dim)';
-      status.textContent = 'Creating tunnel, DNS record, and starting cloudflared...';
+      status.style.display = 'none';
+
+      // Show progress steps and set first as active
+      const progress = document.getElementById('cf-progress');
+      progress.style.display = 'block';
+      ['verify', 'tunnel', 'config', 'dns', 'start'].forEach(s => {
+        const el = document.getElementById('cf-step-' + s);
+        el.className = 'cf-step';
+        el.querySelector('.cf-step-icon').textContent = '⏳';
+      });
+      cfSetStepState('verify', 'active');
 
       try {
         const resp = await fetch('api/cloudflare/auto-setup', {
@@ -1758,19 +1794,28 @@
           })
         });
         const data = await resp.json();
+
+        // Mark completed steps
+        if (data.completed_steps) cfMarkCompleted(data.completed_steps);
+
         if (data.success) {
+          status.style.display = 'block';
           status.style.color = 'var(--success)';
           status.textContent = 'Tunnel active!';
           document.getElementById('cf-setup-form').style.display = 'none';
           document.getElementById('cf-url-value').textContent = 'https://' + data.domain;
           document.getElementById('cf-ready').style.display = 'block';
         } else {
+          // Mark failed step
+          if (data.step) cfSetStepState(data.step, 'failed');
+          status.style.display = 'block';
           status.style.color = 'var(--error)';
-          status.textContent = 'Failed at ' + (data.step || '?') + ': ' + (data.error || 'Unknown error');
+          status.textContent = data.error || 'Unknown error';
           btn.disabled = false;
           btn.textContent = 'Retry';
         }
       } catch (e) {
+        status.style.display = 'block';
         status.style.color = 'var(--error)';
         status.textContent = 'Error: ' + e.message;
         btn.disabled = false;

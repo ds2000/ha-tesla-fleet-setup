@@ -1,6 +1,6 @@
 [project]
 name = "ha-tesla-fleet-setup"
-version = "0.7.7"
+version = "0.7.8"
 description = "Home Assistant add-on for Tesla Fleet API setup and signing proxy"
 requires-python = ">=3.11"
 
@@ -50,6 +50,7 @@ ignore = [
     "ARG001",  # unused function args (aiohttp handlers have `request`)
     "ARG002",  # unused method args
     "B008",    # function calls in defaults (aiohttp patterns)
+    "PLR0911", # too many return statements (step-by-step endpoints)
     "PLR0913", # too many arguments
     "N999",    # module naming for HA add-on structure
     "SIM105",  # contextlib.suppress less clear than try/except

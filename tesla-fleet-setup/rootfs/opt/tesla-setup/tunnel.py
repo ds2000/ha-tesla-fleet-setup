@@ -41,18 +41,8 @@ async def start(token: str, domain: str) -> dict:
         # Log token length/format for debugging (never log the actual token)
         logger.info("Starting cloudflared with token length=%d", len(token))
 
-        # First verify cloudflared works at all
-        version_proc = await asyncio.create_subprocess_exec(
-            "cloudflared", "--version",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
-        version_out = await version_proc.stdout.read()
-        logger.info("cloudflared version: %s", version_out.decode(errors="replace").strip())
-
         _process = await asyncio.create_subprocess_exec(
-            "cloudflared", "tunnel", "--loglevel", "info", "run", "--token", token,
-            "--no-autoupdate", "--protocol", "quic",
+            "cloudflared", "--no-autoupdate", "tunnel", "run", "--token", token,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
@@ -109,8 +99,7 @@ async def _watch_and_restart():
         if _token and _domain:
             try:
                 _process = await asyncio.create_subprocess_exec(
-                    "cloudflared", "tunnel", "run", "--token", _token,
-                    "--no-autoupdate",
+                    "cloudflared", "--no-autoupdate", "tunnel", "run", "--token", _token,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
                 )
