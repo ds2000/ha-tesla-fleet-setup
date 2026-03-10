@@ -562,12 +562,14 @@ async def api_cloudflare_auto_setup(request):
     zone_id = data.get("zone_id", "").strip()
     zone_name = data.get("zone_name", "").strip()
     subdomain = data.get("subdomain", "tesla").strip().lower()
+    account_id = data.get("account_id", "").strip()
 
     if not api_token or not zone_id or not zone_name:
         return web.json_response({"success": False, "error": "Missing required fields"}, status=400)
 
     # Run automated setup (create tunnel, configure, DNS)
-    result = await cf_api.auto_setup(api_token, zone_id, zone_name, subdomain)
+    result = await cf_api.auto_setup(api_token, zone_id, zone_name, subdomain,
+                                      account_id=account_id or None)
     if not result["success"]:
         return web.json_response(result)
 

@@ -61,7 +61,7 @@ class CloudflareAPI:
         return {"success": False, "error": errors[0].get("message", "Invalid token")}
 
     async def get_account_id(self) -> str | None:
-        """Get the first account ID."""
+        """Get the first account ID (tries /accounts, then falls back to zone data)."""
         data = await self._get("/accounts?per_page=1")
         results = data.get("result", [])
         if results:
@@ -69,9 +69,16 @@ class CloudflareAPI:
         return None
 
     async def get_zones(self) -> list[dict]:
-        """Get list of zones (domains) on the account."""
+        """Get list of zones (domains) on the account. Also extracts account_id."""
         data = await self._get("/zones?per_page=50&status=active")
-        return [{"id": z["id"], "name": z["name"]} for z in data.get("result", [])]
+        zones = []
+        for z in data.get("result", []):
+            zone = {"id": z["id"], "name": z["name"]}
+            # Extract account ID from zone data (avoids needing /accounts permission)
+            if z.get("account", {}).get("id"):
+                zone["account_id"] = z["account"]["id"]
+            zones.append(zone)
+        return zones
 
     async def create_tunnel(self, account_id: str, name: str) -> dict:
         """Create a named tunnel. Returns {id, token} or {error}."""
@@ -158,7 +165,8 @@ class CloudflareAPI:
 
 
 async def auto_setup(api_token: str, zone_id: str, zone_name: str,
-                      subdomain: str = "tesla", tunnel_name: str = "ha-tesla-fleet") -> dict:
+                      subdomain: str = "tesla", tunnel_name: str = "ha-tesla-fleet",
+                      account_id: str | None = None) -> dict:
     """Fully automated Cloudflare tunnel setup.
 
     Returns {success, tunnel_token, domain} or {success: False, error, step}.
@@ -170,8 +178,16 @@ async def auto_setup(api_token: str, zone_id: str, zone_name: str,
     if not verify["success"]:
         return {"success": False, "error": verify["error"], "step": "verify"}
 
-    # 2. Get account ID
-    account_id = await cf.get_account_id()
+    # 2. Get account ID (use provided, or try /accounts, or extract from zone)
+    if not account_id:
+        account_id = await cf.get_account_id()
+    if not account_id:
+        # Fallback: extract from zone data
+        zones = await cf.get_zones()
+        for z in zones:
+            if z.get("account_id"):
+                account_id = z["account_id"]
+                break
     if not account_id:
         return {"success": False, "error": "No Cloudflare account found", "step": "account"}
 

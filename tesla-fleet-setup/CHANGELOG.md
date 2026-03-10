@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.4] - 2026-03-10
+
+### Fixed
+
+- Cloudflare auto-setup "No Cloudflare account found" — scoped API tokens
+  don't have /accounts access. Now extracts account ID from zone data instead
+
 ## [0.7.3] - 2026-03-10
 
 ### Fixed
