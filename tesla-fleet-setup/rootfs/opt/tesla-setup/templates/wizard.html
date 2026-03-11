@@ -678,8 +678,20 @@
         (free) to give you a stable domain with automatic HTTPS.
       </p>
       <p class="subtitle expert-only">
-        Choose <strong>DuckDNS</strong> (free, needs port 443) or <strong>Cloudflare Tunnel</strong> (free, no port forwarding).
+        Choose how to expose your public key to Tesla.
       </p>
+
+      <!-- Expert mode: choice cards -->
+      <div class="expert-only" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <div onclick="showDuckDNSSetup();document.getElementById('cf-tunnel-section').style.display='none'" style="flex:1;min-width:200px;padding:16px;background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <strong style="font-size:1rem">DuckDNS</strong>
+          <p style="color:var(--text-muted);font-size:0.82rem;margin-top:4px">Free subdomain + auto HTTPS. Needs port 443 open.</p>
+        </div>
+        <div onclick="document.getElementById('duckdns-setup').style.display='none';document.getElementById('cf-tunnel-section').style.display='block';document.getElementById('cf-tunnel-section').dataset.revealed='true'" style="flex:1;min-width:200px;padding:16px;background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <strong style="font-size:1rem">Cloudflare Tunnel</strong>
+          <p style="color:var(--text-muted);font-size:0.82rem;margin-top:4px">Uses your own domain. No port forwarding needed.</p>
+        </div>
+      </div>
 
       <!-- DuckDNS step-by-step setup -->
       <div id="duckdns-setup" style="display:none">
@@ -846,9 +858,9 @@
         </details>
       </div>
 
-      <!-- Cloudflare Tunnel fallback -->
-      <div id="cf-tunnel-section">
-        <h3 style="margin-top:24px">Alternative: Cloudflare Tunnel</h3>
+      <!-- Cloudflare Tunnel fallback (hidden in guided mode until DuckDNS fails) -->
+      <div id="cf-tunnel-section" style="display:none">
+        <h3 style="margin-top:24px"><span class="guided-only">Alternative: </span>Cloudflare Tunnel</h3>
         <p class="subtitle guided-only">If port 443 is blocked (ISP restriction, double NAT), a Cloudflare Tunnel
           bypasses all port forwarding. Requires a free
           <a href="https://dash.cloudflare.com/sign-up" target="_blank" style="color:var(--accent)">Cloudflare account</a>
@@ -889,14 +901,25 @@
                 <div class="pulse-dot" style="top:72%;left:40%" title="Click API Tokens"></div>
               </div>
 
-              <p style="margin:12px 0 8px"><strong>4.</strong> Scroll down to <strong>Custom token</strong> and click <strong>Get started</strong></p>
+              <p style="margin:12px 0 8px"><strong>4.</strong> Scroll down to <strong>Custom token</strong> and click <strong>Get started</strong>.
+                Name the token anything you like (e.g. <code style="color:var(--blue)">tesla-ha</code>).</p>
               <div class="screenshot-wrap">
                 <img src="static/screenshots/cloudflare-create-custom-token-get-started.png" alt="Custom token — Get started"
                      onerror="this.parentElement.style.display='none'">
                 <div class="pulse-dot" style="top:34%;left:93%" title="Click Get started"></div>
               </div>
 
-              <p style="margin:12px 0 8px"><strong>5.</strong> Set the three permissions exactly as shown, then click <strong>Continue to summary</strong></p>
+              <p style="margin:12px 0 8px"><strong>5.</strong> Add three permission rows using the dropdowns. Set them <strong>exactly</strong> as follows:</p>
+              <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px 16px;margin:8px 0;font-size:0.85rem;line-height:2">
+                <strong>Row 1:</strong> <code style="color:var(--blue)">Account</code> &rarr; <code style="color:var(--blue)">Cloudflare Tunnel</code> &rarr; <code style="color:var(--blue)">Edit</code><br>
+                <strong>Row 2:</strong> <code style="color:var(--blue)">Zone</code> &rarr; <code style="color:var(--blue)">Zone</code> &rarr; <code style="color:var(--blue)">Read</code><br>
+                <strong>Row 3:</strong> <code style="color:var(--blue)">Zone</code> &rarr; <code style="color:var(--blue)">DNS</code> &rarr; <code style="color:var(--blue)">Edit</code>
+              </div>
+              <p style="color:var(--text-muted);font-size:0.85rem;margin:4px 0 8px">
+                Use the <strong>+ Add more</strong> link to add rows 2 and 3.
+                Under <strong>Zone Resources</strong>, select <strong>Include</strong> &rarr; <strong>All zones</strong>.
+                Then click <strong>Continue to summary</strong>.
+              </p>
               <div class="screenshot-wrap">
                 <img src="static/screenshots/cloudflare-create-token-scope.png" alt="Token permissions"
                      onerror="this.parentElement.style.display='none'">
@@ -1463,6 +1486,13 @@
       document.getElementById('mode-guided-label').classList.toggle('active', !isExpert);
       document.getElementById('mode-expert-label').classList.toggle('active', isExpert);
       try { localStorage.setItem('wizard-mode', mode); } catch (_) {}
+      // Show/hide CF section based on mode.
+      // In both modes, only show if it was explicitly revealed (by choice card,
+      // DuckDNS failure, or restored Cloudflare state).
+      const cfSection = document.getElementById('cf-tunnel-section');
+      if (cfSection && !cfSection.dataset.revealed) {
+        cfSection.style.display = 'none';
+      }
     }
     function toggleWizardMode() {
       setWizardMode(document.body.classList.contains('expert-mode') ? 'guided' : 'expert');
@@ -1505,6 +1535,9 @@
           }
           // Restore Cloudflare tunnel state
           if (data.url_method === 'cloudflare' && data.cf_tunnel_domain) {
+            const cfSection = document.getElementById('cf-tunnel-section');
+            cfSection.style.display = 'block';
+            cfSection.dataset.revealed = 'true';
             document.getElementById('cf-setup-form').style.display = 'none';
             document.getElementById('cf-url-value').textContent = 'https://' + data.cf_tunnel_domain;
             document.getElementById('cf-ready').style.display = 'block';
@@ -1946,6 +1979,7 @@
     function showCfFallback(reason) {
       const section = document.getElementById('cf-tunnel-section');
       section.style.display = 'block';
+      section.dataset.revealed = 'true';
       // Add a prominent banner if not already there
       if (!document.getElementById('cf-fallback-banner')) {
         const banner = document.createElement('div');
