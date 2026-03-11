@@ -3,7 +3,7 @@
 Automates:
   1. Fetch account ID and zones (domains)
   2. Create a named tunnel
-  3. Configure tunnel ingress (route domain → localhost:8099)
+  3. Configure tunnel ingress (route domain -> localhost:8099)
   4. Create DNS CNAME record pointing to the tunnel
   5. Return tunnel token for cloudflared
 
@@ -16,6 +16,7 @@ Requires a Cloudflare API token with permissions:
 import base64
 import logging
 import os
+from urllib.parse import quote
 
 import aiohttp
 
@@ -32,26 +33,27 @@ class CloudflareAPI:
             "Content-Type": "application/json",
         }
 
+    async def _request(self, method: str, path: str, json: dict | None = None) -> dict:
+        """Make an authenticated request to the Cloudflare API."""
+        async with aiohttp.ClientSession() as s:
+            async with s.request(
+                method, f"{CF_API}{path}", headers=self._headers, json=json,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as r:
+                if r.content_type != "application/json":
+                    text = await r.text()
+                    logger.error("Cloudflare API returned non-JSON (HTTP %d): %s", r.status, text[:200])
+                    return {"success": False, "errors": [{"message": f"HTTP {r.status}: non-JSON response"}]}
+                return await r.json()
+
     async def _get(self, path: str) -> dict:
-        async with aiohttp.ClientSession() as s, s.get(
-            f"{CF_API}{path}", headers=self._headers,
-            timeout=aiohttp.ClientTimeout(total=15),
-        ) as r:
-            return await r.json()
+        return await self._request("GET", path)
 
     async def _post(self, path: str, json: dict | None = None) -> dict:
-        async with aiohttp.ClientSession() as s, s.post(
-            f"{CF_API}{path}", headers=self._headers, json=json or {},
-            timeout=aiohttp.ClientTimeout(total=15),
-        ) as r:
-            return await r.json()
+        return await self._request("POST", path, json=json or {})
 
     async def _put(self, path: str, json: dict | None = None) -> dict:
-        async with aiohttp.ClientSession() as s, s.put(
-            f"{CF_API}{path}", headers=self._headers, json=json or {},
-            timeout=aiohttp.ClientTimeout(total=15),
-        ) as r:
-            return await r.json()
+        return await self._request("PUT", path, json=json or {})
 
     async def verify_token(self) -> dict:
         """Verify the API token is valid. Returns {success, error?}."""
@@ -75,7 +77,6 @@ class CloudflareAPI:
         zones = []
         for z in data.get("result", []):
             zone = {"id": z["id"], "name": z["name"]}
-            # Extract account ID from zone data (avoids needing /accounts permission)
             if z.get("account", {}).get("id"):
                 zone["account_id"] = z["account"]["id"]
             zones.append(zone)
@@ -83,13 +84,11 @@ class CloudflareAPI:
 
     async def create_or_reuse_tunnel(self, account_id: str, name: str) -> dict:
         """Create a named tunnel, or reuse existing one. Returns {id, token} or {error}."""
-        # Try to find existing tunnel first
         existing = await self._find_tunnel(account_id, name)
         if existing:
             logger.info("Reusing existing tunnel '%s' (%s)", name, existing["id"])
             return existing
 
-        # Create new tunnel
         tunnel_secret = base64.b64encode(os.urandom(32)).decode()
         data = await self._post(f"/accounts/{account_id}/cfd_tunnel", json={
             "name": name,
@@ -101,9 +100,8 @@ class CloudflareAPI:
             msg = errors[0].get("message", "Failed to create tunnel")
             return {"error": msg}
 
-        tunnel = data["result"]
-        tunnel_id = tunnel["id"]
-        # Get the tunnel token
+        result = data["result"]
+        tunnel_id = result["id"]
         token_data = await self._get(f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token")
         token = token_data.get("result", "")
         logger.info("Created new tunnel '%s' (%s)", name, tunnel_id)
@@ -112,7 +110,8 @@ class CloudflareAPI:
 
     async def _find_tunnel(self, account_id: str, name: str) -> dict | None:
         """Find an existing tunnel by name."""
-        data = await self._get(f"/accounts/{account_id}/cfd_tunnel?name={name}&is_deleted=false")
+        safe_name = quote(name, safe="")
+        data = await self._get(f"/accounts/{account_id}/cfd_tunnel?name={safe_name}&is_deleted=false")
         tunnels = data.get("result", [])
         if not tunnels:
             return None
@@ -130,7 +129,7 @@ class CloudflareAPI:
                 "config": {
                     "ingress": [
                         {"hostname": hostname, "service": service},
-                        {"service": "http_status:404"},  # catch-all
+                        {"service": "http_status:404"},
                     ]
                 }
             },
@@ -144,10 +143,9 @@ class CloudflareAPI:
                                  tunnel_id: str, zone_name: str) -> dict:
         """Create a CNAME record pointing subdomain to the tunnel."""
         full_name = f"{subdomain}.{zone_name}" if subdomain else zone_name
-        # Check if record already exists
-        existing = await self._get(f"/zones/{zone_id}/dns_records?name={full_name}&type=CNAME")
+        safe_name = quote(full_name, safe="")
+        existing = await self._get(f"/zones/{zone_id}/dns_records?name={safe_name}&type=CNAME")
         if existing.get("result"):
-            # Update existing record
             record_id = existing["result"][0]["id"]
             data = await self._put(f"/zones/{zone_id}/dns_records/{record_id}", json={
                 "type": "CNAME",
@@ -166,58 +164,3 @@ class CloudflareAPI:
             return {"success": True, "hostname": full_name}
         errors = data.get("errors", [{}])
         return {"success": False, "error": errors[0].get("message", "Failed to create DNS record")}
-
-
-async def auto_setup(api_token: str, zone_id: str, zone_name: str,
-                      subdomain: str = "tesla", tunnel_name: str = "ha-tesla-fleet",
-                      account_id: str | None = None) -> dict:
-    """Fully automated Cloudflare tunnel setup.
-
-    Returns {success, tunnel_token, domain} or {success: False, error, step}.
-    """
-    cf = CloudflareAPI(api_token)
-
-    # 1. Verify token
-    verify = await cf.verify_token()
-    if not verify["success"]:
-        return {"success": False, "error": verify["error"], "step": "verify"}
-
-    # 2. Get account ID (use provided, or try /accounts, or extract from zone)
-    if not account_id:
-        account_id = await cf.get_account_id()
-    if not account_id:
-        # Fallback: extract from zone data
-        zones = await cf.get_zones()
-        for z in zones:
-            if z.get("account_id"):
-                account_id = z["account_id"]
-                break
-    if not account_id:
-        return {"success": False, "error": "No Cloudflare account found", "step": "account"}
-
-    # 3. Create tunnel
-    tunnel = await cf.create_tunnel(account_id, tunnel_name)
-    if "error" in tunnel:
-        return {"success": False, "error": tunnel["error"], "step": "tunnel"}
-
-    tunnel_id = tunnel["id"]
-    tunnel_token = tunnel["token"]
-    hostname = f"{subdomain}.{zone_name}" if subdomain else zone_name
-
-    # 4. Configure tunnel ingress
-    config = await cf.configure_tunnel(account_id, tunnel_id, hostname)
-    if not config["success"]:
-        return {"success": False, "error": config["error"], "step": "config"}
-
-    # 5. Create DNS record
-    dns = await cf.create_dns_record(zone_id, subdomain, tunnel_id, zone_name)
-    if not dns["success"]:
-        return {"success": False, "error": dns["error"], "step": "dns"}
-
-    logger.info("Cloudflare tunnel setup complete: %s → tunnel %s", hostname, tunnel_id)
-    return {
-        "success": True,
-        "tunnel_token": tunnel_token,
-        "tunnel_id": tunnel_id,
-        "domain": hostname,
-    }

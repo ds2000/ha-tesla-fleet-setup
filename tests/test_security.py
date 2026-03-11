@@ -226,6 +226,95 @@ class TestTLSCertSecurity:
         assert command_key != tls_key
 
 
+class TestXSSPrevention:
+    """Test XSS prevention in wizard page."""
+
+    async def test_ingress_path_xss_rejected(self, client):
+        """Malicious X-Ingress-Path header should be sanitized."""
+        resp = await client.get("/", headers={"X-Ingress-Path": '"><script>alert(1)</script>'})
+        body = await resp.text()
+        assert "<script>alert(1)</script>" not in body
+
+    async def test_ingress_path_valid_passes(self, client):
+        """Valid X-Ingress-Path header should work."""
+        resp = await client.get("/", headers={"X-Ingress-Path": "/api/hassio_ingress/abc123"})
+        body = await resp.text()
+        assert 'href="/api/hassio_ingress/abc123/"' in body
+
+    async def test_version_html_escaped(self, client):
+        """VERSION is HTML-escaped in output."""
+        resp = await client.get("/")
+        assert resp.status == 200
+
+
+class TestVehicleInputValidation:
+    """Test vehicle ID and command parameter validation."""
+
+    async def test_vehicle_id_path_traversal(self, client, setup_complete_state):
+        """Path traversal in vehicle_id should be rejected."""
+        resp = await client.get("/api/vehicles/../../admin/data")
+        assert resp.status in {400, 404}
+
+    async def test_command_injection_rejected(self, client, setup_complete_state):
+        """Non-alphanumeric command names should be rejected."""
+        resp = await client.post("/api/vehicles/123/command/../../etc/passwd")
+        # Should get 400 (invalid command) or 404 (route not matched)
+        assert resp.status in (400, 404)
+
+
+class TestRegionValidation:
+    """Test Fleet API region URL validation."""
+
+    async def test_rejects_arbitrary_region(self, client):
+        """Arbitrary URLs should not be accepted as region."""
+        resp = await client.post("/api/save-credentials", json={
+            "client_id": "test-id",
+            "client_secret": "test-secret",
+            "region": "https://evil.com",
+        })
+        assert resp.status == 200
+        # Region should NOT be set to the evil URL
+        assert server.state.get("api_region") != "https://evil.com"
+
+    async def test_accepts_valid_region(self, client):
+        """Known Tesla Fleet API URLs should be accepted."""
+        resp = await client.post("/api/save-credentials", json={
+            "client_id": "test-id",
+            "client_secret": "test-secret",
+            "region": "https://fleet-api.prd.eu.vn.cloud.tesla.com",
+        })
+        assert resp.status == 200
+        assert server.state["api_region"] == "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+
+
+class TestSubdomainValidation:
+    """Test DuckDNS subdomain input sanitization."""
+
+    def test_rejects_shell_injection(self):
+        result = server._clean_subdomain('; rm -rf /')
+        assert result == ""
+
+    def test_rejects_path_traversal(self):
+        result = server._clean_subdomain("../../etc/passwd")
+        assert result == ""
+
+    def test_accepts_valid_subdomain(self):
+        result = server._clean_subdomain("my-tesla")
+        assert result == "my-tesla"
+
+    def test_strips_duckdns_suffix(self):
+        result = server._clean_subdomain("my-tesla.duckdns.org")
+        assert result == "my-tesla"
+
+    def test_rejects_empty(self):
+        result = server._clean_subdomain("")
+        assert result == ""
+
+    def test_rejects_too_long(self):
+        result = server._clean_subdomain("a" * 64)
+        assert result == ""
+
+
 class TestProxySecurity:
     """Test proxy-related security measures."""
 

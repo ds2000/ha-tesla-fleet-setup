@@ -54,7 +54,7 @@ def ensure_tls_certs() -> tuple[str, str]:
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
-        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650))
+        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365))
         .add_extension(
             x509.SubjectAlternativeName([
                 x509.DNSName("localhost"),
@@ -66,17 +66,18 @@ def ensure_tls_certs() -> tuple[str, str]:
         .sign(key, hashes.SHA256())
     )
 
-    # Write key with restricted permissions
-    tmp_key = TLS_KEY_PATH.with_suffix(".tmp")
-    tmp_key.write_bytes(
-        key.private_bytes(
+    # Write key with restricted permissions from creation
+    tmp_key = str(TLS_KEY_PATH.with_suffix(".tmp"))
+    fd = os.open(tmp_key, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, key.private_bytes(
             serialization.Encoding.PEM,
             serialization.PrivateFormat.PKCS8,
             serialization.NoEncryption(),
-        )
-    )
+        ))
+    finally:
+        os.close(fd)
     os.replace(tmp_key, TLS_KEY_PATH)
-    os.chmod(TLS_KEY_PATH, 0o600)
 
     # Write cert
     tmp_cert = TLS_CERT_PATH.with_suffix(".tmp")

@@ -5,16 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.9] - 2026-03-11
+## [0.9.0] - 2026-03-11
+
+### Security
+
+- **XSS prevention**: Validate and HTML-escape `X-Ingress-Path` header
+  before injecting into wizard page `<base href>`
+- **Shell injection prevention**: Validate DuckDNS subdomain (`^[a-z0-9-]+$`)
+  and token format before embedding in certbot hook shell scripts
+- **SSRF prevention**: Fleet API region URLs restricted to known Tesla
+  endpoints (`fleet-api.prd.*.vn.cloud.tesla.com`)
+- **Path injection prevention**: Vehicle ID validated as numeric, command
+  names restricted to `^[a-z0-9_]+$`
+- **Race condition fix**: Token refresh uses `asyncio.Lock` to prevent
+  concurrent refresh attempts
+- **File permission hardening**: Private keys written with `os.open(mode=0o600)`
+  from creation — no world-readable window before `chmod`
+- **Directory permissions**: `/data/keys` and `/data/tls` created with
+  mode 700 in `run.sh`
+- **Supply chain**: Pin `vehicle-command` to v0.4.1 tag, `cloudflared`
+  to 2026.3.0 release
+- **State persistence**: `save_state()` uses `tempfile.NamedTemporaryFile`
+  with permissions set before content written
+- **Error sanitization**: Verify URL errors return generic message instead
+  of raw exception details
 
 ### Fixed
 
+- Resolve vehicle VIN from Fleet API before sending commands through
+  signing proxy — proxy requires 17-char VIN, not numeric Fleet API ID
 - Remove `location_data` from vehicle data endpoints — Tesla rejects
-  the entire request if any endpoint requires a scope the token lacks,
-  `drive_state` still provides GPS when available
-- Route vehicle commands through signing proxy (tesla-http-proxy on
-  port 4443) — Tesla Vehicle Command Protocol requires signed commands,
-  direct Fleet API calls return 403
+  the entire request if any endpoint requires a scope the token lacks
+- Route vehicle commands through signing proxy when available
+- Fix `_process.returncode` reference after `_process = None` in tunnel.py
+- Fix tunnel `stop()` race with restart watcher — clear `_token`/`_domain`
+  so watcher exits cleanly
+- Remove dead `auto_setup()` function from cf_api.py (called nonexistent method)
+- URL-encode query parameters in Cloudflare API calls
+- Handle non-JSON Cloudflare API responses gracefully
+- Corrupt `state.json` now logs warning instead of silently failing
+
+### Changed
+
+- TLS cert validity reduced from 10 years to 1 year
+- Remove unused `share:rw` volume mount from config.yaml
+- Remove `curl` from runtime image (only needed at build time)
+- Dockerfile uses separate build stage for cloudflared download
+- Remove token length from `run.sh` log output
+- 13 new security tests (XSS, path traversal, region validation,
+  subdomain injection, command validation)
 
 ## [0.8.8] - 2026-03-11
 

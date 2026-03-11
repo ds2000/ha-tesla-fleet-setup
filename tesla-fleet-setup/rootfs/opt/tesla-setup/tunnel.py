@@ -38,9 +38,9 @@ async def start(token: str, domain: str) -> dict:
     _domain = domain
 
     try:
-        # Log token length/format for debugging (never log the actual token)
         logger.info("Starting cloudflared with token length=%d", len(token))
 
+        # Pass token via CLI — cloudflared doesn't support env: prefix for --token
         _process = await asyncio.create_subprocess_exec(
             "cloudflared", "--no-autoupdate", "tunnel", "run", "--token", token,
             stdout=asyncio.subprocess.PIPE,
@@ -52,9 +52,10 @@ async def start(token: str, domain: str) -> dict:
         if _process.returncode is not None:
             output = await _process.stdout.read()
             error = output.decode(errors="replace").strip()[-800:]
-            logger.error("Cloudflare tunnel exited (code %d): %s", _process.returncode, error)
+            returncode = _process.returncode
+            logger.error("Cloudflare tunnel exited (code %d): %s", returncode, error)
             _process = None
-            return {"success": False, "error": error or f"Tunnel exited with code {_process.returncode}"}
+            return {"success": False, "error": error or f"Tunnel exited with code {returncode}"}
 
         logger.info("Cloudflare tunnel started for %s (pid %d)", domain, _process.pid)
 
@@ -68,22 +69,28 @@ async def start(token: str, domain: str) -> dict:
         return {"success": False, "error": "cloudflared not installed"}
     except Exception as e:
         logger.error("Failed to start Cloudflare tunnel: %s", e)
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Failed to start tunnel"}
 
 
 async def stop():
-    """Stop the tunnel."""
-    global _process, _restart_task
+    """Stop the tunnel and clear state so the watcher doesn't restart."""
+    global _process, _restart_task, _token, _domain
     if _restart_task and not _restart_task.done():
         _restart_task.cancel()
         _restart_task = None
+    # Clear token/domain so watcher loop exits if it's mid-sleep
+    _token = None
+    _domain = None
     if _process:
         logger.info("Stopping Cloudflare tunnel")
         try:
             _process.terminate()
             await asyncio.wait_for(_process.wait(), timeout=10)
         except (asyncio.TimeoutError, ProcessLookupError):
-            _process.kill()
+            try:
+                _process.kill()
+            except ProcessLookupError:
+                pass
         _process = None
 
 
@@ -93,13 +100,16 @@ async def _watch_and_restart():
     while _token and _domain:
         if _process:
             await _process.wait()
+            if not _token or not _domain:
+                break
             logger.warning("Cloudflare tunnel exited (code %d), restarting in 5s...", _process.returncode)
             _process = None
         await asyncio.sleep(5)
         if _token and _domain:
             try:
                 _process = await asyncio.create_subprocess_exec(
-                    "cloudflared", "--no-autoupdate", "tunnel", "run", "--token", _token,
+                    "cloudflared", "--no-autoupdate", "tunnel", "run",
+                    "--token", _token,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
                 )

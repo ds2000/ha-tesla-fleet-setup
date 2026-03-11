@@ -12,6 +12,7 @@ verifies the .well-known endpoint and revokes the key if it's unreachable.
 import asyncio
 import logging
 import os
+import re
 import shutil
 import socket
 import ssl
@@ -280,8 +281,22 @@ def stop_updater():
 
 # ── Let's Encrypt certificate ────────────────────────────────────────────────
 
+_SAFE_SUBDOMAIN_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+_SAFE_TOKEN_RE = re.compile(r"^[a-f0-9-]+$")
+
+
 def _write_hook_scripts(subdomain: str, token: str):
-    """Write certbot DNS-01 auth/cleanup hook scripts for DuckDNS."""
+    """Write certbot DNS-01 auth/cleanup hook scripts for DuckDNS.
+
+    Validates inputs before embedding in shell scripts to prevent injection.
+    """
+    if not _SAFE_SUBDOMAIN_RE.match(subdomain):
+        msg = f"Invalid subdomain for hook script: {subdomain!r}"
+        raise ValueError(msg)
+    if not _SAFE_TOKEN_RE.match(token):
+        msg = "Invalid DuckDNS token format"
+        raise ValueError(msg)
+
     hook_dir = Path("/data/certbot-hooks")
     hook_dir.mkdir(parents=True, exist_ok=True)
     auth = hook_dir / "auth.sh"

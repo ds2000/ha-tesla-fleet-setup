@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 
 echo "Starting Tesla Fleet Setup add-on (version: ${BUILD_VERSION:-unknown})..."
 
-# Ensure data directories exist for persistent storage
+# Ensure data directories exist with restrictive permissions
 mkdir -p /data/keys /data/tls
+chmod 700 /data/keys /data/tls
 
-# Debug: log whether SUPERVISOR_TOKEN is available
+# Resolve SUPERVISOR_TOKEN from available sources
 if [ -n "$SUPERVISOR_TOKEN" ]; then
-    echo "SUPERVISOR_TOKEN is set (length: ${#SUPERVISOR_TOKEN})"
+    echo "SUPERVISOR_TOKEN is set"
 else
     echo "WARNING: SUPERVISOR_TOKEN is NOT set"
     # Try s6-overlay container environment

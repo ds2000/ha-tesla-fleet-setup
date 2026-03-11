@@ -14,6 +14,10 @@ TESLA_API_BASE_NA = "https://fleet-api.prd.na.vn.cloud.tesla.com"
 TESLA_API_BASE_EU = "https://fleet-api.prd.eu.vn.cloud.tesla.com"
 DEFAULT_API_BASE = TESLA_API_BASE_NA
 
+# Known valid Fleet API endpoints — used for region validation
+VALID_FLEET_BASES = {TESLA_API_BASE_NA, TESLA_API_BASE_EU}
+_TESLA_FLEET_RE = re.compile(r"^https://fleet-api\.prd\.[a-z]{2}\.vn\.cloud\.tesla\.com$")
+
 PRIVATE_KEY_PATH = Path("/data/keys/private.pem")
 
 # Module-level mutable region state — set after detection
@@ -30,9 +34,20 @@ def set_api_base(url: str):
     logger.info("Fleet API base set to %s", url)
 
 
+def _validate_fleet_url(url: str) -> str | None:
+    """Validate and normalize a Fleet API base URL. Returns URL or None if invalid."""
+    if not url:
+        return None
+    if not url.startswith("https://"):
+        url = f"https://{url}"
+    if _TESLA_FLEET_RE.match(url):
+        return url
+    logger.warning("Rejected unexpected fleet URL: %s", url)
+    return None
+
+
 async def detect_region(access_token: str) -> str:
     """Auto-detect the user's Fleet API region. Returns the correct base URL."""
-    # Try NA first
     for base in [TESLA_API_BASE_NA, TESLA_API_BASE_EU]:
         url = f"{base}/api/1/users/region"
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -40,23 +55,13 @@ async def detect_region(access_token: str) -> str:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers,
                                        timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status == 200:
+                    if resp.status in (200, 412):
                         data = await resp.json()
-                        fleet_url = data.get("response", {}).get("fleet_api_base_url")
+                        fleet_url = _validate_fleet_url(
+                            data.get("response", {}).get("fleet_api_base_url", ""),
+                        )
                         if fleet_url:
-                            # Ensure https:// prefix
-                            if not fleet_url.startswith("https://"):
-                                fleet_url = f"https://{fleet_url}"
                             logger.info("Region detected: %s", fleet_url)
-                            return fleet_url
-                    elif resp.status == 412:
-                        # Wrong region — the response tells us the correct one
-                        data = await resp.json()
-                        fleet_url = data.get("response", {}).get("fleet_api_base_url")
-                        if fleet_url:
-                            if not fleet_url.startswith("https://"):
-                                fleet_url = f"https://{fleet_url}"
-                            logger.info("Region redirect: %s", fleet_url)
                             return fleet_url
         except Exception as e:
             logger.debug("Region check against %s failed: %s", base, e)
@@ -262,22 +267,28 @@ async def wake_vehicle(access_token: str, vehicle_id: str) -> dict:
 
 
 async def send_command(access_token: str, vehicle_id: str, command: str, body: dict | None = None,
-                       use_proxy: bool = False) -> dict:
+                       use_proxy: bool = False, vin: str | None = None) -> dict:
     """Send a command to a vehicle.
 
     If use_proxy=True, routes through the local tesla-http-proxy (port 4443)
-    which signs commands using the Vehicle Command Protocol.
+    which signs commands using the Vehicle Command Protocol. The proxy
+    requires a 17-character VIN, not the numeric Fleet API vehicle ID.
     """
     if use_proxy:
-        return await _proxy_request(access_token, vehicle_id, command, body)
+        if not vin:
+            return {"success": False, "error": "VIN required for signed commands (proxy)"}
+        return await _proxy_request(access_token, vin, command, body)
     return await _api_request(access_token, "POST",
                               f"/api/1/vehicles/{vehicle_id}/command/{command}", body or {})
 
 
-async def _proxy_request(access_token: str, vehicle_id: str, command: str,
+async def _proxy_request(access_token: str, vin: str, command: str,
                           body: dict | None = None) -> dict:
-    """Send a signed command through the local tesla-http-proxy."""
-    url = f"https://localhost:4443/api/1/vehicles/{vehicle_id}/command/{command}"
+    """Send a signed command through the local tesla-http-proxy.
+
+    The proxy requires a 17-character VIN, not the numeric Fleet API vehicle ID.
+    """
+    url = f"https://localhost:4443/api/1/vehicles/{vin}/command/{command}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
     try:

@@ -1,11 +1,15 @@
 """Main aiohttp server: wizard UI, .well-known endpoint, and API routes."""
 
+import asyncio
+import html as html_mod
 import json
 import logging
 import os
+import re
 import secrets
 import shutil
 import sys
+import tempfile
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -83,15 +87,27 @@ def load_state():
             saved = json.loads(STATE_PATH.read_text())
             state.update(saved)
         except Exception:
-            pass
+            logger.warning("Failed to load state from %s — starting fresh", STATE_PATH)
 
 
 def save_state():
     """Write state to disk with restricted permissions (contains secrets)."""
-    tmp = STATE_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state, indent=2))
-    os.replace(tmp, STATE_PATH)
-    os.chmod(STATE_PATH, 0o600)
+    fd = tempfile.NamedTemporaryFile(
+        mode="w", dir=STATE_PATH.parent, suffix=".tmp", delete=False,
+    )
+    try:
+        fd.write(json.dumps(state, indent=2))
+        fd.close()
+        os.chmod(fd.name, 0o600)
+        os.replace(fd.name, STATE_PATH)
+    except BaseException:
+        fd.close()
+        os.unlink(fd.name)
+        raise
+
+
+# Lock to prevent concurrent token refreshes
+_token_lock = asyncio.Lock()
 
 
 # --- .well-known endpoint ---
@@ -174,7 +190,8 @@ async def api_verify_url(request):
                         return web.json_response({"verified": True, "url": test_url})
                 return web.json_response({"verified": False, "status": resp.status})
     except Exception as e:
-        return web.json_response({"verified": False, "error": str(e)})
+        logger.warning("URL verification failed: %s", e)
+        return web.json_response({"verified": False, "error": "Connection failed — check DNS and network"})
 
 
 async def api_save_credentials(request):
@@ -191,8 +208,8 @@ async def api_save_credentials(request):
     state["client_secret"] = client_secret
     state["step"] = max(state["step"], 4)
 
-    # Set Fleet API region if provided
-    if region and region.startswith("https://"):
+    # Set Fleet API region if provided — must be a known Tesla endpoint
+    if region and region in tesla_api.VALID_FLEET_BASES:
         state["api_region"] = region
         tesla_api.set_api_base(region)
         logger.info("Fleet API region set to %s", region)
@@ -320,35 +337,35 @@ async def oauth_callback(request):
 
 
 async def _get_access_token():
-    """Get a valid access token, refreshing if needed."""
-    tokens = state.get("tokens")
-    if not tokens:
-        return None, "No tokens available. Complete setup first."
+    """Get a valid access token, refreshing if needed. Uses lock to prevent concurrent refreshes."""
+    async with _token_lock:
+        tokens = state.get("tokens")
+        if not tokens:
+            return None, "No tokens available. Complete setup first."
 
-    # Check if token is expired (with 60s buffer)
-    expires_at = tokens.get("expires_at", 0)
-    if not expires_at and tokens.get("expires_in"):
-        # First time: estimate from creation time (not persisted, so refresh to be safe)
-        expires_at = 0
+        # Check if token is expired (with 60s buffer)
+        expires_at = tokens.get("expires_at", 0)
+        if not expires_at and tokens.get("expires_in"):
+            expires_at = 0
 
-    if expires_at and time.time() < expires_at - 60:
-        return tokens["access_token"], None
+        if expires_at and time.time() < expires_at - 60:
+            return tokens["access_token"], None
 
-    # Token expired or unknown expiry — try refresh
-    refresh_token = tokens.get("refresh_token")
-    if not refresh_token:
-        return None, "No refresh token. Please reconnect via OAuth."
+        # Token expired or unknown expiry — try refresh
+        refresh_token = tokens.get("refresh_token")
+        if not refresh_token:
+            return None, "No refresh token. Please reconnect via OAuth."
 
-    result = await tesla_api.refresh_tokens(
-        state["client_id"], state["client_secret"], refresh_token
-    )
-    if result["success"]:
-        new_tokens = result["data"]
-        new_tokens["expires_at"] = time.time() + new_tokens.get("expires_in", 3600)
-        state["tokens"] = new_tokens
-        save_state()
-        return new_tokens["access_token"], None
-    return None, f"Token refresh failed: {result.get('error', 'unknown')}"
+        result = await tesla_api.refresh_tokens(
+            state["client_id"], state["client_secret"], refresh_token
+        )
+        if result["success"]:
+            new_tokens = result["data"]
+            new_tokens["expires_at"] = time.time() + new_tokens.get("expires_in", 3600)
+            state["tokens"] = new_tokens
+            save_state()
+            return new_tokens["access_token"], None
+        return None, f"Token refresh failed: {result.get('error', 'unknown')}"
 
 
 async def api_vehicles(request):
@@ -360,12 +377,46 @@ async def api_vehicles(request):
     return web.json_response(result)
 
 
+_VEHICLE_ID_RE = re.compile(r"^\d+$")
+_COMMAND_RE = re.compile(r"^[a-z0-9_]+$")
+
+
+def _validate_vehicle_id(vid: str) -> str | None:
+    """Return error message if vehicle_id is invalid, else None."""
+    if not _VEHICLE_ID_RE.match(vid):
+        return "Invalid vehicle ID"
+    return None
+
+
+# Cache vehicle ID → VIN mapping (populated from list_vehicles)
+_vin_cache: dict[str, str] = {}
+
+
+async def _resolve_vin(access_token: str, vehicle_id: str) -> str | None:
+    """Resolve a numeric vehicle ID to a 17-character VIN.
+
+    The signing proxy requires VIN, not the Fleet API numeric ID.
+    """
+    if vehicle_id in _vin_cache:
+        return _vin_cache[vehicle_id]
+    result = await tesla_api.list_vehicles(access_token)
+    if result.get("success"):
+        for v in result["data"].get("response", []):
+            vid = str(v.get("id", ""))
+            vin = v.get("vin", "")
+            if vid and vin:
+                _vin_cache[vid] = vin
+    return _vin_cache.get(vehicle_id)
+
+
 async def api_vehicle_data(request):
     """Get full vehicle data."""
     token, err = await _get_access_token()
     if err:
         return web.json_response({"success": False, "error": err}, status=401)
     vid = request.match_info["vehicle_id"]
+    if verr := _validate_vehicle_id(vid):
+        return web.json_response({"success": False, "error": verr}, status=400)
     result = await tesla_api.get_vehicle_data(token, vid)
     return web.json_response(result)
 
@@ -376,6 +427,8 @@ async def api_wake(request):
     if err:
         return web.json_response({"success": False, "error": err}, status=401)
     vid = request.match_info["vehicle_id"]
+    if verr := _validate_vehicle_id(vid):
+        return web.json_response({"success": False, "error": verr}, status=400)
     result = await tesla_api.wake_vehicle(token, vid)
     return web.json_response(result)
 
@@ -387,13 +440,20 @@ async def api_command(request):
         return web.json_response({"success": False, "error": err}, status=401)
     vid = request.match_info["vehicle_id"]
     cmd = request.match_info["command"]
+    if verr := _validate_vehicle_id(vid):
+        return web.json_response({"success": False, "error": verr}, status=400)
+    if not _COMMAND_RE.match(cmd):
+        return web.json_response({"success": False, "error": "Invalid command"}, status=400)
     try:
         body = await request.json()
     except Exception:
         body = None
     # Route through signing proxy if it's running (required for Vehicle Command Protocol)
     use_proxy = proxy_manager.get_status().get("running", False)
-    result = await tesla_api.send_command(token, vid, cmd, body, use_proxy=use_proxy)
+    vin = None
+    if use_proxy:
+        vin = await _resolve_vin(token, vid)
+    result = await tesla_api.send_command(token, vid, cmd, body, use_proxy=use_proxy, vin=vin)
     return web.json_response(result)
 
 
@@ -439,14 +499,19 @@ async def api_credentials_for_ha(request):
     })
 
 
+_SUBDOMAIN_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+
+
 def _clean_subdomain(raw: str) -> str:
-    """Strip .duckdns.org suffix and whitespace from subdomain input."""
+    """Strip .duckdns.org suffix, validate as safe DNS subdomain label."""
     s = raw.strip().lower()
-    # User may paste full domain instead of just subdomain
     for suffix in [".duckdns.org", ".duckdns"]:
         if s.endswith(suffix):
             s = s[: -len(suffix)]
-    return s.strip(".")
+    s = s.strip(".")
+    if not s or not _SUBDOMAIN_RE.match(s) or len(s) > 63:
+        return ""
+    return s
 
 
 async def api_duckdns_verify(request):
@@ -675,6 +740,9 @@ async def api_reset(request):
     return web.json_response({"success": True})
 
 
+_INGRESS_PATH_RE = re.compile(r"^/[a-zA-Z0-9/_-]*$")
+
+
 async def wizard_page(request):
     """Serve the wizard HTML.
 
@@ -682,12 +750,15 @@ async def wizard_page(request):
     relative URLs (api/status, static/...) resolve through the HA
     ingress proxy instead of hitting HA Core directly.
     """
-    html = (TEMPLATES_DIR / "wizard.html").read_text()
+    page = (TEMPLATES_DIR / "wizard.html").read_text()
     ingress_path = request.headers.get("X-Ingress-Path", "")
+    # Validate ingress path to prevent XSS injection
+    if ingress_path and not _INGRESS_PATH_RE.match(ingress_path):
+        ingress_path = ""
     base_url = f"{ingress_path}/" if ingress_path else "/"
-    html = html.replace("<head>", f'<head>\n  <base href="{base_url}">', 1)
-    html = html.replace("__VERSION__", VERSION)
-    return web.Response(text=html, content_type="text/html")
+    page = page.replace("<head>", f'<head>\n  <base href="{html_mod.escape(base_url)}">', 1)
+    page = page.replace("__VERSION__", html_mod.escape(VERSION))
+    return web.Response(text=page, content_type="text/html")
 
 
 async def on_startup(app):

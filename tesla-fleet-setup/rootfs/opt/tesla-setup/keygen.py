@@ -11,6 +11,17 @@ PRIVATE_KEY_PATH = KEYS_DIR / "private.pem"
 PUBLIC_KEY_PATH = KEYS_DIR / "public.pem"
 
 
+def _write_secure(path: Path, data: str, mode: int = 0o600):
+    """Write file via temp with permissions set before content is written."""
+    tmp = path.with_suffix(".tmp")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+    try:
+        os.write(fd, data.encode())
+    finally:
+        os.close(fd)
+    os.replace(tmp, path)
+
+
 def ensure_keys() -> tuple[str, str]:
     """Generate EC P-256 key pair if not already present. Returns (private_pem, public_pem)."""
     KEYS_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,14 +42,9 @@ def ensure_keys() -> tuple[str, str]:
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     ).decode()
 
-    # Write atomically-ish: write to temp then rename
-    tmp_priv = PRIVATE_KEY_PATH.with_suffix(".tmp")
+    _write_secure(PRIVATE_KEY_PATH, private_pem, 0o600)
+
     tmp_pub = PUBLIC_KEY_PATH.with_suffix(".tmp")
-
-    tmp_priv.write_text(private_pem)
-    os.replace(tmp_priv, PRIVATE_KEY_PATH)
-    os.chmod(PRIVATE_KEY_PATH, 0o600)
-
     tmp_pub.write_text(public_pem)
     os.replace(tmp_pub, PUBLIC_KEY_PATH)
 

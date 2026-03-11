@@ -6,37 +6,43 @@ FROM golang:1.23-alpine AS go-builder
 
 RUN apk add --no-cache git
 
-RUN git clone --depth 1 https://github.com/teslamotors/vehicle-command.git /build
+# Pin to a specific release tag for supply-chain safety
+RUN git clone --depth 1 --branch v0.4.1 https://github.com/teslamotors/vehicle-command.git /build
 
 WORKDIR /build
 
 RUN go build -ldflags="-s -w" -o /tesla-http-proxy ./cmd/tesla-http-proxy
 
-# Stage 2: Final add-on image
+# Stage 2: Download cloudflared with version pinning
+FROM alpine:3.19 AS cf-downloader
+
+ARG TARGETARCH
+RUN apk add --no-cache curl \
+    && case "${TARGETARCH}" in \
+        amd64)   CF_ARCH="amd64" ;; \
+        arm64)   CF_ARCH="arm64" ;; \
+        arm*)    CF_ARCH="arm"   ;; \
+        *)       CF_ARCH="amd64" ;; \
+    esac \
+    && curl -fsSL "https://github.com/cloudflare/cloudflared/releases/download/2026.3.0/cloudflared-linux-${CF_ARCH}" \
+       -o /cloudflared \
+    && chmod +x /cloudflared
+
+# Stage 3: Final add-on image
 FROM ${BUILD_FROM}
 ARG BUILD_VERSION=dev
 
-# Copy tesla-http-proxy binary from builder
+# Copy binaries from builder stages
 COPY --from=go-builder /tesla-http-proxy /usr/local/bin/tesla-http-proxy
+COPY --from=cf-downloader /cloudflared /usr/local/bin/cloudflared
 
-# Install Python, pip, certbot, UPnP client, and cloudflared
+# Install Python, pip, certbot, and UPnP client (no curl needed at runtime)
 RUN apk add --no-cache \
     python3 \
     py3-pip \
     py3-cryptography \
     certbot \
-    miniupnpc \
-    curl \
-    && ARCH="$(apk --print-arch)" \
-    && case "$ARCH" in \
-        x86_64)  CF_ARCH="amd64" ;; \
-        aarch64) CF_ARCH="arm64" ;; \
-        armv7l)  CF_ARCH="arm"   ;; \
-        *)       CF_ARCH="amd64" ;; \
-    esac \
-    && curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CF_ARCH}" \
-       -o /usr/local/bin/cloudflared \
-    && chmod +x /usr/local/bin/cloudflared
+    miniupnpc
 
 # Install Python dependencies
 COPY requirements.txt /tmp/
