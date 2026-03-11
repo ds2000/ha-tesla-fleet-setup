@@ -423,6 +423,20 @@ async def api_inject_credentials(request):
     return web.json_response(result)
 
 
+async def api_credentials_for_ha(request):
+    """Return client_id and client_secret for manual HA credential entry.
+
+    Only served via HA ingress (same-machine access). Used as fallback
+    when automatic injection fails.
+    """
+    if not state["client_id"] or not state["client_secret"]:
+        return web.json_response({"error": "No credentials saved"}, status=400)
+    return web.json_response({
+        "client_id": state["client_id"],
+        "client_secret": state["client_secret"],
+    })
+
+
 def _clean_subdomain(raw: str) -> str:
     """Strip .duckdns.org suffix and whitespace from subdomain input."""
     s = raw.strip().lower()
@@ -750,6 +764,7 @@ def create_app() -> web.Application:
 
     # HA integration
     app.router.add_post("/api/inject-credentials", api_inject_credentials)
+    app.router.add_get("/api/credentials-for-ha", api_credentials_for_ha)
 
     # DuckDNS
     app.router.add_post("/api/duckdns/verify", api_duckdns_verify)

@@ -1,6 +1,6 @@
 [project]
 name = "ha-tesla-fleet-setup"
-version = "0.8.1"
+version = "0.8.2"
 description = "Home Assistant add-on for Tesla Fleet API setup and signing proxy"
 requires-python = ">=3.11"
 

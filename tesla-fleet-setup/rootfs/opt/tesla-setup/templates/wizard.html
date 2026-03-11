@@ -1101,6 +1101,28 @@
           </div>
           <button class="btn-test" id="ha-creds-btn" onclick="injectCredentials()" style="display:none">Retry</button>
         </div>
+        <div id="ha-creds-manual" style="display:none; margin-top:8px;">
+          <details>
+            <summary style="cursor:pointer; color: var(--accent); font-size:0.9rem;">If HA still asks for credentials, paste these:</summary>
+            <div style="margin-top:8px">
+              <div class="copy-field">
+                <span class="field-label">Name</span>
+                <span class="field-value">Tesla Fleet</span>
+                <button class="btn-copy" onclick="copyText(this, null, 'Tesla Fleet')">Copy</button>
+              </div>
+              <div class="copy-field">
+                <span class="field-label">OAuth client ID</span>
+                <span class="field-value" id="ha-manual-client-id"></span>
+                <button class="btn-copy" onclick="copyText(this, 'ha-manual-client-id')">Copy</button>
+              </div>
+              <div class="copy-field">
+                <span class="field-label">OAuth client secret</span>
+                <span class="field-value" id="ha-manual-client-secret"></span>
+                <button class="btn-copy" onclick="copyText(this, 'ha-manual-client-secret')">Copy</button>
+              </div>
+            </div>
+          </details>
+        </div>
 
         <div class="api-card" id="partner-reg-card">
           <div class="api-indicator" id="partner-reg-indicator"></div>
@@ -1375,14 +1397,29 @@
           text.textContent = 'Credentials saved to HA — ready to add Tesla Fleet integration';
           btn.style.display = 'none';
         } else {
-          indicator.className = 'api-indicator';
-          text.textContent = 'Not yet injected';
-          btn.style.display = 'inline-block';
-          btn.textContent = 'Inject Now';
+          // Try auto-injecting first
+          indicator.className = 'api-indicator running';
+          text.textContent = 'Injecting credentials into HA...';
+          await injectCredentials();
         }
+        // Always show manual fallback with credentials
+        loadManualCredentials();
       } catch (e) {
         console.error('Failed to check credential status:', e);
+        loadManualCredentials();
       }
+    }
+
+    async function loadManualCredentials() {
+      try {
+        const resp = await fetch('api/credentials-for-ha');
+        const data = await resp.json();
+        if (data.client_id) {
+          document.getElementById('ha-manual-client-id').textContent = data.client_id;
+          document.getElementById('ha-manual-client-secret').textContent = data.client_secret;
+          document.getElementById('ha-creds-manual').style.display = 'block';
+        }
+      } catch (_) { /* ignore */ }
     }
 
     async function injectCredentials() {
