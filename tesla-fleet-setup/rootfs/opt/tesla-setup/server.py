@@ -381,7 +381,7 @@ async def api_wake(request):
 
 
 async def api_command(request):
-    """Send a command to a vehicle (unsigned, security level 7)."""
+    """Send a command to a vehicle, routing through signing proxy when available."""
     token, err = await _get_access_token()
     if err:
         return web.json_response({"success": False, "error": err}, status=401)
@@ -391,7 +391,9 @@ async def api_command(request):
         body = await request.json()
     except Exception:
         body = None
-    result = await tesla_api.send_command(token, vid, cmd, body)
+    # Route through signing proxy if it's running (required for Vehicle Command Protocol)
+    use_proxy = proxy_manager.get_status().get("running", False)
+    result = await tesla_api.send_command(token, vid, cmd, body, use_proxy=use_proxy)
     return web.json_response(result)
 
 

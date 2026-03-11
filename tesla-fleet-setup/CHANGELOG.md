@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.9] - 2026-03-11
+
+### Fixed
+
+- Remove `location_data` from vehicle data endpoints — Tesla rejects
+  the entire request if any endpoint requires a scope the token lacks,
+  `drive_state` still provides GPS when available
+- Route vehicle commands through signing proxy (tesla-http-proxy on
+  port 4443) — Tesla Vehicle Command Protocol requires signed commands,
+  direct Fleet API calls return 403
+
 ## [0.8.8] - 2026-03-11
 
 ### Fixed

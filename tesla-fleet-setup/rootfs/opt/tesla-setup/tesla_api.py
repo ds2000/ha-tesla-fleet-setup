@@ -246,8 +246,12 @@ async def list_vehicles(access_token: str) -> dict:
 
 
 async def get_vehicle_data(access_token: str, vehicle_id: str) -> dict:
-    """Get comprehensive vehicle data."""
-    endpoints = "charge_state%3Bclimate_state%3Bdrive_state%3Blocation_data%3Bvehicle_state%3Bvehicle_config"
+    """Get comprehensive vehicle data.
+
+    Note: location_data is excluded because it requires vehicle_location scope
+    which may not be granted. drive_state still includes GPS when available.
+    """
+    endpoints = "charge_state%3Bclimate_state%3Bdrive_state%3Bvehicle_state%3Bvehicle_config"
     return await _api_request(access_token, "GET",
                               f"/api/1/vehicles/{vehicle_id}/vehicle_data?endpoints={endpoints}")
 
@@ -257,7 +261,39 @@ async def wake_vehicle(access_token: str, vehicle_id: str) -> dict:
     return await _api_request(access_token, "POST", f"/api/1/vehicles/{vehicle_id}/wake_up", {})
 
 
-async def send_command(access_token: str, vehicle_id: str, command: str, body: dict | None = None) -> dict:
-    """Send a command to a vehicle."""
+async def send_command(access_token: str, vehicle_id: str, command: str, body: dict | None = None,
+                       use_proxy: bool = False) -> dict:
+    """Send a command to a vehicle.
+
+    If use_proxy=True, routes through the local tesla-http-proxy (port 4443)
+    which signs commands using the Vehicle Command Protocol.
+    """
+    if use_proxy:
+        return await _proxy_request(access_token, vehicle_id, command, body)
     return await _api_request(access_token, "POST",
                               f"/api/1/vehicles/{vehicle_id}/command/{command}", body or {})
+
+
+async def _proxy_request(access_token: str, vehicle_id: str, command: str,
+                          body: dict | None = None) -> dict:
+    """Send a signed command through the local tesla-http-proxy."""
+    url = f"https://localhost:4443/api/1/vehicles/{vehicle_id}/command/{command}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    try:
+        connector = aiohttp.TCPConnector(ssl=False)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.post(url, headers=headers, json=body or {},
+                                     timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                try:
+                    data = await resp.json()
+                except Exception:
+                    data = {"raw": await resp.text()}
+                if resp.status == 200:
+                    return {"success": True, "data": data}
+                safe = _sanitize_error(str(data))
+                logger.error("Proxy command %s failed (HTTP %d): %s", command, resp.status, safe)
+                return {"success": False, "status": resp.status, "error": safe}
+    except Exception as e:
+        logger.error("Proxy command %s failed: %s", command, e)
+        return {"success": False, "error": f"Proxy unavailable: {e}"}
