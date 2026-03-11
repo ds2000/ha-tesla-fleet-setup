@@ -1,26 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git *)",
-      "Bash(python3 *)",
-      "Bash(pip *)",
-      "Bash(gh *)",
-      "Bash(npm *)",
-      "Bash(cat *)",
-      "Bash(ls *)",
-      "Bash(cd *)",
-      "Bash(find *)",
-      "Bash(grep *)",
+      "Bash(*)",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
       "WebSearch",
-      "WebFetch",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfix: always show Cloudflare Tunnel option on Step 2\n\nDuckDNS reachability test hits localhost:443 which always passes —\nit can't detect external unreachability from inside the container.\nShow Cloudflare option alongside DuckDNS instead of hiding it.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.2 && git push origin main --tags)",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfix: add missing Zone:Read permission to Cloudflare token instructions\n\nWithout Zone → Zone → Read, the add-on can't list domains after token\nverification. Updated instructions in wizard UI and cf_api.py docstring.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.3 && git push origin main --tags)",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfix: extract account ID from zone data for scoped API tokens\n\nScoped Cloudflare API tokens don't have /accounts access, causing\n\"No Cloudflare account found\" error. Now extracts account_id from\nzone response data and passes it through the auto-setup flow.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.4 && git push origin main --tags)",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfix: use standard base64 for Cloudflare tunnel secret\n\nCloudflare API rejects URL-safe base64 \\(underscores\\). Use standard\nbase64 encoding from os.urandom instead of secrets.token_urlsafe.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.5 && git push origin main --tags)",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfix: capture cloudflared stdout for tunnel startup error messages\n\nMerged stdout+stderr streams and increased startup wait to 5s so\nactual error messages from cloudflared are logged and shown to user.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.6 && git push origin main --tags)",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\ndebug: add cloudflared version check and verbose logging for tunnel startup\n\nLog cloudflared version, token metadata, use --loglevel info and\n--protocol quic to diagnose silent tunnel crashes on startup.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.7 && git push origin main --tags)",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfix: cloudflared flag order and step-by-step progress UI\n\nMove --no-autoupdate before tunnel subcommand \\(it's a global flag\\).\nAdd step-by-step progress with green ticks for each stage of\nCloudflare tunnel setup \\(verify, tunnel, config, DNS, start\\).\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.8 && git push origin main --tags)",
-      "Bash(git add -A && git commit -m \"$\\(cat <<'EOF'\nfix: auto-populate Step 3 URLs after Cloudflare tunnel setup\n\nSet publicKeyUrl and call updateUrlDisplay\\(\\) on Cloudflare success\nso origin and redirect URIs are pre-filled for Tesla app registration.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git tag v0.7.9 && git push origin main --tags)"
+      "WebFetch"
     ]
   }
 }

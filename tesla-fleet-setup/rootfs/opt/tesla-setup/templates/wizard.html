@@ -1600,6 +1600,9 @@
             warn.style.display = 'block';
           }
         }
+
+        // Auto-test external reachability
+        await verifyUrl();
       } catch (e) {
         // Mark current active step as failed
         document.querySelectorAll('.setup-step.active').forEach(el => {
@@ -1620,6 +1623,24 @@
       document.getElementById('public-url-value').textContent = publicKeyUrl;
       document.getElementById('origin-value').textContent = publicKeyUrl;
       document.getElementById('redirect-value').textContent = publicKeyUrl + '/oauth/callback';
+    }
+
+    function showCfFallback(reason) {
+      const section = document.getElementById('cf-tunnel-section');
+      section.style.display = 'block';
+      // Add a prominent banner if not already there
+      if (!document.getElementById('cf-fallback-banner')) {
+        const banner = document.createElement('div');
+        banner.id = 'cf-fallback-banner';
+        banner.className = 'info-box warning';
+        banner.style.marginBottom = '16px';
+        banner.innerHTML = '<strong>Port 443 is not reachable externally</strong> — this usually means ' +
+          'your ISP blocks inbound port 443 or you have double NAT. ' +
+          'Use a <strong>Cloudflare Tunnel</strong> instead (no port forwarding needed).';
+        section.insertBefore(banner, section.firstChild);
+      }
+      // Scroll to it
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     async function retryUpnp() {
@@ -1673,17 +1694,18 @@
         } else {
           icon.className = 'status-icon error';
           icon.textContent = '!';
-          text.textContent = 'Not reachable: ' + (data.error || 'HTTP ' + data.status);
+          const reason = data.error || ('HTTP ' + data.status);
+          text.textContent = 'Not reachable: ' + reason;
           btn.textContent = 'Retry';
+          // DuckDNS failed — highlight Cloudflare tunnel as alternative
+          if (!isCf) showCfFallback(reason);
         }
       } catch (e) {
         icon.className = 'status-icon error';
         icon.textContent = '!';
         text.textContent = 'Test failed: ' + e.message;
         btn.textContent = 'Retry';
-        if (!isCf) {
-          document.getElementById('cf-tunnel-section').style.display = 'block';
-        }
+        if (!isCf) showCfFallback(e.message);
       }
       btn.disabled = false;
     }

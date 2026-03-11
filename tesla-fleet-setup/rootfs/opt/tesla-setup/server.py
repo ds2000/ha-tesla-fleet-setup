@@ -154,35 +154,24 @@ async def api_set_url(request):
 
 
 async def api_verify_url(request):
-    """Self-test: verify .well-known/appkeys is being served.
+    """Self-test: verify .well-known/appkeys is reachable from the internet.
 
-    For DuckDNS URLs, test the local HTTPS server on port 443 (container
-    can't resolve its own DuckDNS hostname from inside).
+    Always tests the actual public URL — not localhost. This catches
+    double NAT, ISP port blocking, and DNS propagation issues.
     """
     url = state.get("public_key_url")
     if not url:
         return web.json_response({"error": "No public URL configured"}, status=400)
 
-    method = state.get("url_method")
-    if method == "duckdns":
-        # DuckDNS: test the local HTTPS server on port 443
-        test_url = f"https://localhost:{duckdns.HTTPS_PORT}/.well-known/appspecific/com.tesla.3p.public-key.pem"
-    elif method == "cloudflare":
-        # Cloudflare tunnel: test the actual public URL (tunnel routes to our server)
-        test_url = f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"
-    else:
-        test_url = f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"
+    test_url = f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"
 
     try:
-        # Skip TLS verify for localhost self-test (DuckDNS cert is for the domain, not localhost)
-        connector = aiohttp.TCPConnector(ssl=False) if "localhost" in test_url and test_url.startswith("https") else None
-        async with aiohttp.ClientSession(connector=connector) as session:
+        async with aiohttp.ClientSession() as session:
             async with session.get(test_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 200:
                     body = await resp.text()
                     if "BEGIN PUBLIC KEY" in body:
-                        well_known = f"{url}/.well-known/appspecific/com.tesla.3p.public-key.pem"
-                        return web.json_response({"verified": True, "url": well_known})
+                        return web.json_response({"verified": True, "url": test_url})
                 return web.json_response({"verified": False, "status": resp.status})
     except Exception as e:
         return web.json_response({"verified": False, "error": str(e)})
