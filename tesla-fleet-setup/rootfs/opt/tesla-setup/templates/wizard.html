@@ -1799,12 +1799,15 @@
         if (data.completed_steps) cfMarkCompleted(data.completed_steps);
 
         if (data.success) {
+          publicKeyUrl = 'https://' + data.domain;
+          urlMethod = 'cloudflare';
           status.style.display = 'block';
           status.style.color = 'var(--success)';
           status.textContent = 'Tunnel active!';
           document.getElementById('cf-setup-form').style.display = 'none';
-          document.getElementById('cf-url-value').textContent = 'https://' + data.domain;
+          document.getElementById('cf-url-value').textContent = publicKeyUrl;
           document.getElementById('cf-ready').style.display = 'block';
+          updateUrlDisplay();
         } else {
           // Mark failed step
           if (data.step) cfSetStepState(data.step, 'failed');
