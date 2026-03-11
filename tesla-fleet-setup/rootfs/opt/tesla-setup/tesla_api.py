@@ -247,7 +247,7 @@ async def list_vehicles(access_token: str) -> dict:
 
 async def get_vehicle_data(access_token: str, vehicle_id: str) -> dict:
     """Get comprehensive vehicle data."""
-    endpoints = "charge_state,climate_state,drive_state,location_data,vehicle_state,vehicle_config"
+    endpoints = "charge_state%3Bclimate_state%3Bdrive_state%3Blocation_data%3Bvehicle_state%3Bvehicle_config"
     return await _api_request(access_token, "GET",
                               f"/api/1/vehicles/{vehicle_id}/vehicle_data?endpoints={endpoints}")
 
