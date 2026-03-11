@@ -1141,10 +1141,11 @@
       <details style="text-align: left; margin-top: 8px;">
         <summary style="cursor:pointer; color: var(--accent); font-weight: 500; font-size: 0.95rem;">Test API Connection</summary>
         <div style="margin-top: 12px;">
-          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
-            These tests use the wizard's OAuth token directly. If you see 403 errors but the
-            HA Tesla Fleet integration works, that's normal &mdash; HA uses its own OAuth session.
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+            These tests use the wizard's own OAuth token. 403 errors usually mean the token needs
+            to be refreshed with the correct scopes.
           </p>
+          <button class="btn btn-secondary btn-small" onclick="startOAuth()" style="margin-bottom: 12px;">Re-authorize with Tesla</button>
           <div class="vehicle-selector" id="vehicle-selector" style="display:none">
             <label for="vehicle-select">Vehicle:</label>
             <select id="vehicle-select" onchange="onVehicleChange()"></select>

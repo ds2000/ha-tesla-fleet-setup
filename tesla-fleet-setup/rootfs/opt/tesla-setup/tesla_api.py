@@ -236,7 +236,7 @@ async def _api_request(access_token: str, method: str, path: str, json_body: dic
                 logger.info("vehicle_data response keys: %s", keys)
             return {"success": True, "data": data}
         safe = _sanitize_error(str(data))
-        logger.error("API request %s %s failed (HTTP %d)", method, path, resp.status)
+        logger.error("API request %s %s failed (HTTP %d): %s", method, path, resp.status, safe)
         return {"success": False, "status": resp.status, "error": safe}
 
 
