@@ -108,7 +108,7 @@ async def _register_partner_region(client_id: str, client_secret: str, domain: s
         "grant_type": "client_credentials",
         "client_id": client_id,
         "client_secret": client_secret,
-        "scope": "openid vehicle_device_data vehicle_cmds vehicle_charging_cmds",
+        "scope": "openid user_data vehicle_device_data vehicle_location vehicle_cmds vehicle_charging_cmds",
         "audience": api_base,
     }
 
@@ -145,7 +145,7 @@ def get_oauth_url(client_id: str, redirect_uri: str, state: str) -> str:
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": "openid offline_access vehicle_device_data vehicle_cmds vehicle_charging_cmds energy_device_data energy_cmds",
+        "scope": "openid offline_access user_data vehicle_device_data vehicle_location vehicle_cmds vehicle_charging_cmds energy_device_data energy_cmds",
         "state": state,
     })
     return f"{TESLA_AUTH_BASE}/oauth2/v3/authorize?{params}"
