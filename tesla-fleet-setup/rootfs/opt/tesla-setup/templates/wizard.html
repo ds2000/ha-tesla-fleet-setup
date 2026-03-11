@@ -1303,6 +1303,12 @@
         const resp = await fetch('api/proxy/status');
         const data = await resp.json();
         updateProxyUI(data);
+        // Auto-start proxy if it's not running but should be
+        if (!data.running && data.available) {
+          const startResp = await fetch('api/proxy/start', { method: 'POST' });
+          const startData = await startResp.json();
+          updateProxyUI(startData);
+        }
       } catch (e) {
         console.error('Failed to check proxy status:', e);
       }
