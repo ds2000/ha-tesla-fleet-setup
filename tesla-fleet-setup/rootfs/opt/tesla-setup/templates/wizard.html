@@ -492,6 +492,7 @@
     .api-card .api-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
     .api-card .api-result { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; font-family: 'SF Mono', 'Menlo', monospace; }
     .api-card .api-result.ok { color: var(--success); }
+    .api-card .api-result.warn { color: #f39c12; }
     .api-card .api-result.fail { color: var(--error); }
 
     .api-card .btn-test {
@@ -1085,6 +1086,7 @@
             <div class="api-name">Signing Proxy</div>
             <div class="api-desc" id="proxy-status-text">Checking...</div>
             <div class="api-result" id="proxy-url-display" style="display:none"></div>
+            <div class="api-result" id="proxy-cert-info" style="display:none; margin-top:4px;"></div>
           </div>
           <button class="btn-test" id="proxy-toggle-btn" onclick="toggleProxy()" style="min-width: 72px">Start</button>
         </div>
@@ -1323,6 +1325,7 @@
       const indicator = document.getElementById('proxy-indicator');
       const statusText = document.getElementById('proxy-status-text');
       const urlDisplay = document.getElementById('proxy-url-display');
+      const certInfo = document.getElementById('proxy-cert-info');
       const toggleBtn = document.getElementById('proxy-toggle-btn');
       const integrationInfo = document.getElementById('proxy-integration-info');
       const unavailable = document.getElementById('proxy-unavailable');
@@ -1333,10 +1336,30 @@
         toggleBtn.style.display = 'none';
         unavailable.style.display = 'block';
         integrationInfo.style.display = 'none';
+        certInfo.style.display = 'none';
         return;
       }
 
       unavailable.style.display = 'none';
+
+      // Show TLS cert expiry info
+      if (data.tls_cert) {
+        const days = data.tls_cert.days_remaining;
+        const expiry = new Date(data.tls_cert.expires).toLocaleDateString();
+        if (days <= 0) {
+          certInfo.textContent = `TLS cert expired on ${expiry} — restart proxy to regenerate`;
+          certInfo.className = 'api-result fail';
+        } else if (days <= 30) {
+          certInfo.textContent = `TLS cert expires in ${days} days (${expiry}) — will auto-renew on next restart`;
+          certInfo.className = 'api-result warn';
+        } else {
+          certInfo.textContent = `TLS cert valid for ${days} days (expires ${expiry})`;
+          certInfo.className = 'api-result ok';
+        }
+        certInfo.style.display = 'block';
+      } else {
+        certInfo.style.display = 'none';
+      }
 
       if (data.running) {
         indicator.className = 'api-indicator ok';

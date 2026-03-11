@@ -28,14 +28,53 @@ def proxy_available() -> bool:
     return shutil.which("tesla-http-proxy") is not None or Path(PROXY_BINARY).exists()
 
 
-def ensure_tls_certs() -> tuple[str, str]:
-    """Generate self-signed TLS certs for the proxy if not present.
+TLS_CERT_VALIDITY_DAYS = 365
+TLS_CERT_RENEWAL_DAYS = 30  # Regenerate when less than 30 days remain
 
+
+def _cert_needs_renewal() -> bool:
+    """Check if the existing TLS cert is expiring within the renewal window."""
+    if not TLS_CERT_PATH.exists():
+        return True
+    try:
+        cert = x509.load_pem_x509_certificate(TLS_CERT_PATH.read_bytes())
+        remaining = cert.not_valid_after_utc - datetime.datetime.now(datetime.timezone.utc)
+        if remaining.days < TLS_CERT_RENEWAL_DAYS:
+            logger.info("TLS cert expires in %d days — regenerating", remaining.days)
+            return True
+        return False
+    except Exception as e:
+        logger.warning("Could not read TLS cert for renewal check: %s", e)
+        return True
+
+
+def get_cert_info() -> dict | None:
+    """Return TLS certificate expiry info, or None if no cert exists."""
+    if not TLS_CERT_PATH.exists():
+        return None
+    try:
+        cert = x509.load_pem_x509_certificate(TLS_CERT_PATH.read_bytes())
+        now = datetime.datetime.now(datetime.timezone.utc)
+        expiry = cert.not_valid_after_utc
+        remaining = expiry - now
+        return {
+            "expires": expiry.isoformat(),
+            "days_remaining": max(0, remaining.days),
+            "valid": remaining.days > 0,
+        }
+    except Exception:
+        return None
+
+
+def ensure_tls_certs() -> tuple[str, str]:
+    """Generate self-signed TLS certs for the proxy if not present or expiring soon.
+
+    Cert validity: 1 year. Auto-regenerates when less than 30 days remain.
     Returns (cert_path, key_path).
     """
     TLS_DIR.mkdir(parents=True, exist_ok=True)
 
-    if TLS_CERT_PATH.exists() and TLS_KEY_PATH.exists():
+    if TLS_CERT_PATH.exists() and TLS_KEY_PATH.exists() and not _cert_needs_renewal():
         return str(TLS_CERT_PATH), str(TLS_KEY_PATH)
 
     logger.info("Generating self-signed TLS certificate for tesla-http-proxy")
@@ -110,6 +149,7 @@ class ProxyManager:
             "available": proxy_available(),
             "port": PROXY_PORT,
             "url": f"https://localhost:{PROXY_PORT}" if self.running else None,
+            "tls_cert": get_cert_info(),
         }
 
     async def start(self) -> dict:
