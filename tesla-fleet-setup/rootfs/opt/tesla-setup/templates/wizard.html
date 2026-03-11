@@ -1933,15 +1933,35 @@
     }
 
     // --- Step 5: OAuth ---
+    let _oauthPollTimer = null;
+
     async function startOAuth() {
       try {
         const resp = await fetch(`api/oauth-url`);
         const data = await resp.json();
         if (data.error) throw new Error(data.error);
         window.open(data.url, '_blank');
+        // Start polling for OAuth completion
+        startOAuthPolling();
       } catch (e) {
         alert('Error: ' + e.message);
       }
+    }
+
+    function startOAuthPolling() {
+      if (_oauthPollTimer) return;
+      _oauthPollTimer = setInterval(async () => {
+        try {
+          const resp = await fetch('api/status');
+          const data = await resp.json();
+          if (data.has_tokens) {
+            clearInterval(_oauthPollTimer);
+            _oauthPollTimer = null;
+            publicKeyUrl = data.public_key_url || publicKeyUrl;
+            showComplete();
+          }
+        } catch (_) { /* ignore polling errors */ }
+      }, 3000);
     }
 
     // --- Utilities ---
