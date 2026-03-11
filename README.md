@@ -2,7 +2,7 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/ds2000/ha-tesla-fleet-setup)](https://github.com/ds2000/ha-tesla-fleet-setup/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-102%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-103%20passed-brightgreen)]()
 
 A Home Assistant add-on that turns the complex Tesla Fleet API setup into a
 guided 10-minute wizard — and then keeps running as a **signing proxy** so
@@ -45,11 +45,13 @@ integrations can send secure vehicle commands.
 ## Features
 
 - **5-step guided wizard** -- key generation, public key hosting, Tesla app registration, partner verification, and OAuth connection
+- **Guided / Expert modes** -- toggle between detailed step-by-step screenshots (for beginners) and a condensed view (for experienced users)
+- **22 annotated screenshots** -- every external step has a screenshot with a pulsing red dot showing exactly where to click
 - **Built-in signing proxy** -- `tesla-http-proxy` compiled from Tesla's official source, runs on port 4443 for signed vehicle commands (security level 10+)
+- **DuckDNS or Cloudflare Tunnel** -- choose free DuckDNS domain (with auto UPnP + Let's Encrypt), or Cloudflare Tunnel for ISP-blocked / double NAT setups
 - **Auto-inject HA credentials** -- your Client ID and Client Secret are automatically saved to HA's Application Credentials store via WebSocket API, so the Tesla Fleet integration picks them up with zero re-entry
 - **Works with multiple integrations** -- the signing proxy is compatible with the built-in Tesla Fleet integration, tesla_custom_component (alandtse/tesla), and any integration that supports the Fleet API proxy protocol
 - **API testing dashboard** -- after setup, test vehicle data, commands, and connectivity directly from the add-on UI
-- **Cloudflare tunnel** -- free temporary tunnel for public key hosting during setup (no account needed); stays running so HA can verify the domain
 - **Survives restarts** -- tunnel, proxy, and domain display all recover automatically after add-on or HA reboots
 
 ## Installation
@@ -72,7 +74,7 @@ The wizard walks you through five steps:
 | Step | What happens | Your effort |
 |------|-------------|-------------|
 | 1. Keys | EC P-256 key pair is generated automatically | Click one button |
-| 2. Expose | Cloudflare tunnel created to host your public key | One click |
+| 2. Expose | DuckDNS domain or Cloudflare Tunnel to host your public key | Enter credentials, one click |
 | 3. Register | Guided walkthrough for developer.tesla.com | ~2 min of copy-paste |
 | 4. Verify | Partner authentication with Tesla | Click one button |
 | 5. Connect | OAuth sign-in with your Tesla account | Sign in and approve |
@@ -119,7 +121,7 @@ Any integration supporting the Tesla Fleet API proxy protocol can use
   cleared after use to prevent replay
 - **Separate TLS and signing keys** -- the proxy's TLS certificate uses a
   different key pair from the Tesla command-signing key
-- **102 automated tests** -- including security tests for credential exposure,
+- **103 automated tests** -- including security tests for credential exposure,
   tunnel isolation, OAuth replay, file permissions, and input validation
 
 ## Local Development
@@ -128,7 +130,7 @@ Any integration supporting the Tesla Fleet API proxy protocol can use
 # Install dev dependencies
 pip install -r requirements-dev.txt
 
-# Run tests (102 tests)
+# Run tests (103 tests)
 python3 -m pytest tests/ -v
 
 # Lint (ruff with bandit security rules)

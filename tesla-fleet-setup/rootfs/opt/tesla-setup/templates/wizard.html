@@ -359,32 +359,7 @@
       margin-top: 4px;
     }
 
-    /* Screenshot placeholder */
-    .screenshot-placeholder {
-      background: rgba(255,255,255,0.03);
-      border: 1px dashed var(--border);
-      border-radius: 8px;
-      padding: 20px;
-      text-align: center;
-      margin: 12px 0;
-      min-height: 140px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .screenshot-placeholder img {
-      max-width: 100%;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-
-    .screenshot-placeholder .caption {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
+    /* (screenshot-placeholder removed — replaced by screenshot-wrap) */
 
     /* Divider */
     .divider {
@@ -459,6 +434,86 @@
       text-decoration: none;
     }
     .reset-link:hover { color: var(--text); }
+
+    /* Mode toggle */
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 28px;
+      font-size: 0.85rem;
+    }
+    .mode-toggle .mode-label {
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.2s;
+      user-select: none;
+    }
+    .mode-toggle .mode-label.active { color: var(--text); font-weight: 600; }
+    .mode-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .mode-switch.expert { background: var(--accent); }
+    .mode-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.3s;
+    }
+    .mode-switch.expert::after { transform: translateX(20px); }
+
+    /* Content visibility by mode */
+    body.expert-mode .guided-only { display: none !important; }
+    body:not(.expert-mode) .expert-only { display: none !important; }
+
+    /* Screenshot with pulse annotation */
+    .screenshot-wrap {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+      margin: 8px 0;
+    }
+    .screenshot-wrap img {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: block;
+    }
+    .pulse-dot {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(232, 33, 39, 0.7);
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .pulse-dot::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 2px solid rgba(232, 33, 39, 0.5);
+      animation: pulse-ring 2s ease-out infinite;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
+    }
 
     /* API Testing */
     .api-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
@@ -556,6 +611,13 @@
       <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">v__VERSION__</p>
     </header>
 
+    <!-- Mode Toggle -->
+    <div class="mode-toggle">
+      <span class="mode-label active" id="mode-guided-label" onclick="setWizardMode('guided')">Guided</span>
+      <div class="mode-switch" id="mode-switch" onclick="toggleWizardMode()"></div>
+      <span class="mode-label" id="mode-expert-label" onclick="setWizardMode('expert')">Expert</span>
+    </div>
+
     <!-- Progress Bar -->
     <div class="progress">
       <div class="progress-step active" data-step="1">
@@ -588,11 +650,14 @@
         This is generated automatically &mdash; just click the button below.
       </p>
 
-      <div class="info-box info">
+      <div class="info-box info guided-only">
         <strong>What does this do?</strong> It creates a unique pair of security keys.
         The "public" key will be shared with Tesla so they know it's really your
         Home Assistant talking to them. The "private" key stays safely on your device.
       </div>
+      <p class="expert-only" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:16px">
+        Generates an EC P-256 key pair for Tesla Fleet API authentication.
+      </p>
 
       <div class="status-row" id="key-status">
         <div class="status-icon pending" id="key-icon">1</div>
@@ -607,17 +672,20 @@
     <!-- ====== STEP 2: Set Up Domain via DuckDNS ====== -->
     <div class="step-card" id="step-2">
       <h2>Set Up Your Domain</h2>
-      <p class="subtitle">
+      <p class="subtitle guided-only">
         Tesla needs a permanent URL to verify your public key. We'll use
         <a href="https://www.duckdns.org" target="_blank" style="color:var(--blue)">DuckDNS</a>
         (free) to give you a stable domain with automatic HTTPS.
+      </p>
+      <p class="subtitle expert-only">
+        Choose <strong>DuckDNS</strong> (free, needs port 443) or <strong>Cloudflare Tunnel</strong> (free, no port forwarding).
       </p>
 
       <!-- DuckDNS step-by-step setup -->
       <div id="duckdns-setup" style="display:none">
 
         <!-- Step 1: Sign in -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+        <div class="guided-only" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
             <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">1</span>
             <span style="font-weight:600">Sign in to DuckDNS</span>
@@ -626,9 +694,16 @@
             Open <a href="https://www.duckdns.org" target="_blank" style="color:var(--blue)">duckdns.org</a>
             and sign in with your Google, GitHub, Twitter, or Reddit account.
           </p>
-          <img src="static/screenshots/duckdns-signin.png" alt="DuckDNS sign in page"
-               style="width:100%;border-radius:8px;border:1px solid var(--border);margin-top:4px"
-               onerror="this.style.display='none'">
+          <div class="screenshot-wrap" style="margin-top:4px">
+            <img src="static/screenshots/duckdns-landing.png" alt="DuckDNS landing page"
+                 onerror="this.parentElement.style.display='none'">
+            <div class="pulse-dot" style="top:8%;left:63%" title="Click Sign in with GitHub (or another provider)"></div>
+          </div>
+          <div class="screenshot-wrap" style="margin-top:8px">
+            <img src="static/screenshots/duckdns-github-signin.png" alt="Authorize DuckDNS on GitHub"
+                 onerror="this.parentElement.style.display='none'">
+            <div class="pulse-dot" style="top:48%;left:68%" title="Click Continue"></div>
+          </div>
         </div>
 
         <!-- Step 2: Create subdomain -->
@@ -637,7 +712,7 @@
             <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">2</span>
             <span style="font-weight:600">Create this subdomain</span>
           </div>
-          <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
+          <p class="guided-only" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
             Type the name below into the "sub domain" field on DuckDNS and click
             <strong>add domain</strong>.
             <span style="color:var(--warning)">The name must not contain "tesla"</span>
@@ -656,9 +731,11 @@
                    class="input" style="border-radius:var(--radius) 0 0 var(--radius);border-right:none;flex:1;min-width:0">
             <span style="background:rgba(0,0,0,0.3);border:1px solid var(--border);padding:12px 14px;font-size:1rem;color:var(--text-muted);border-radius:0 var(--radius) var(--radius) 0;white-space:nowrap;display:flex;align-items:center">.duckdns.org</span>
           </div>
-          <img src="static/screenshots/duckdns-add-domain.png" alt="DuckDNS add domain"
-               style="width:100%;border-radius:8px;border:1px solid var(--border);margin-top:8px"
-               onerror="this.style.display='none'">
+          <div class="screenshot-wrap guided-only">
+            <img src="static/screenshots/duckdns-token.png" alt="DuckDNS dashboard showing domain and token"
+                 onerror="this.parentElement.style.display='none'">
+            <div class="pulse-dot" style="top:53%;left:70%" title="Click add domain"></div>
+          </div>
         </div>
 
         <!-- Step 3: Copy token -->
@@ -667,15 +744,17 @@
             <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">3</span>
             <span style="font-weight:600">Copy your token</span>
           </div>
-          <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
+          <p class="guided-only" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
             Your token is shown at the top of the DuckDNS dashboard page. Copy it and paste it below.
           </p>
           <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:6px">DuckDNS Token</label>
           <input type="password" id="duckdns-token" placeholder="Paste your DuckDNS token here"
                  class="input">
-          <img src="static/screenshots/duckdns-token.png" alt="DuckDNS token location"
-               style="width:100%;border-radius:8px;border:1px solid var(--border);margin-top:8px"
-               onerror="this.style.display='none'">
+          <div class="screenshot-wrap guided-only">
+            <img src="static/screenshots/duckdns-token.png" alt="DuckDNS token location"
+                 onerror="this.parentElement.style.display='none'">
+            <div class="pulse-dot" style="top:23%;left:63%" title="Copy this token"></div>
+          </div>
         </div>
 
         <!-- Step 4: Activate -->
@@ -753,7 +832,7 @@
           <button class="btn btn-primary" onclick="goToStep(3)" id="step2-next" disabled>Continue</button>
         </div>
 
-        <details>
+        <details class="guided-only">
           <summary>Troubleshooting: test fails?</summary>
           <div class="details-content">
             <p>Port 443 should be auto-forwarded via UPnP. If your router doesn't
@@ -770,13 +849,13 @@
       <!-- Cloudflare Tunnel fallback -->
       <div id="cf-tunnel-section">
         <h3 style="margin-top:24px">Alternative: Cloudflare Tunnel</h3>
-        <p class="subtitle">If port 443 is blocked (ISP restriction, double NAT), a Cloudflare Tunnel
+        <p class="subtitle guided-only">If port 443 is blocked (ISP restriction, double NAT), a Cloudflare Tunnel
           bypasses all port forwarding. Requires a free
           <a href="https://dash.cloudflare.com/sign-up" target="_blank" style="color:var(--accent)">Cloudflare account</a>
           and a domain on Cloudflare (~&euro;1/year for a .xyz).</p>
 
         <div id="cf-setup-form">
-          <div class="info-box info" style="margin-bottom:16px">
+          <div class="info-box info guided-only" style="margin-bottom:16px">
             <strong>One-time setup:</strong> Create a Cloudflare API token at
             <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:var(--accent)">dash.cloudflare.com/profile/api-tokens</a>
             with these permissions:<br>
@@ -784,6 +863,66 @@
             &bull; Zone &rarr; Zone &rarr; Read<br>
             &bull; Zone &rarr; DNS &rarr; Edit
           </div>
+
+          <!-- Cloudflare screenshot guide (guided-only) -->
+          <details class="guided-only" style="margin-bottom:16px" open>
+            <summary>How to create a Cloudflare API token (step by step)</summary>
+            <div class="details-content" style="padding:12px">
+              <p style="margin-bottom:8px"><strong>1.</strong> Log in at <a href="https://dash.cloudflare.com" target="_blank" style="color:var(--accent)">dash.cloudflare.com</a></p>
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/cloudflare-login.png" alt="Cloudflare login page"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:78%;left:50%" title="Click Log in"></div>
+              </div>
+
+              <p style="margin:12px 0 8px"><strong>2.</strong> Click the person icon (top right), then <strong>My Profile</strong></p>
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/cloudflare-clickthepersonandthenprofile.png" alt="Click Profile menu"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:28%;left:55%" title="Click Profile"></div>
+              </div>
+
+              <p style="margin:12px 0 8px"><strong>3.</strong> Click <strong>API Tokens</strong> in the sidebar</p>
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/cloudflare-myprofile-click-api_token.png" alt="Click API Tokens"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:72%;left:40%" title="Click API Tokens"></div>
+              </div>
+
+              <p style="margin:12px 0 8px"><strong>4.</strong> Scroll down to <strong>Custom token</strong> and click <strong>Get started</strong></p>
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/cloudflare-create-custom-token-get-started.png" alt="Custom token — Get started"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:34%;left:93%" title="Click Get started"></div>
+              </div>
+
+              <p style="margin:12px 0 8px"><strong>5.</strong> Set the three permissions exactly as shown, then click <strong>Continue to summary</strong></p>
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/cloudflare-create-token-scope.png" alt="Token permissions"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:96%;left:40%" title="Click Continue to summary"></div>
+              </div>
+
+              <p style="margin:12px 0 8px"><strong>6.</strong> Confirm and click <strong>Create Token</strong></p>
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/cloudflare-confirm-create_token.png" alt="Confirm token creation"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:82%;left:42%" title="Click Create Token"></div>
+              </div>
+
+              <p style="margin:12px 0 8px"><strong>7.</strong> Copy the token — <span style="color:var(--warning)">it's only shown once!</span></p>
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/cloudflare-notedown-token.png" alt="Copy the API token"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:42%;left:58%" title="Click copy icon to copy token"></div>
+              </div>
+            </div>
+          </details>
+
+          <p class="expert-only" style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px">
+            <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:var(--accent)">Create API token</a>
+            with Tunnel:Edit, Zone:Read, DNS:Edit permissions.
+          </p>
 
           <label style="display:block; margin-bottom:8px; color:var(--text-dim)">Cloudflare API Token</label>
           <input type="password" id="cf-api-token" class="input" placeholder="Paste your API token">
@@ -843,17 +982,21 @@
     <!-- ====== STEP 3: Register Tesla App ====== -->
     <div class="step-card" id="step-3">
       <h2>Register Your App with Tesla</h2>
-      <p class="subtitle">
+      <p class="subtitle guided-only">
         This is the one step that needs to be done on Tesla's website.
         Follow these instructions carefully &mdash; we've pre-filled everything for you.
       </p>
+      <p class="subtitle expert-only">
+        Register your app at <a href="https://developer.tesla.com" target="_blank" style="color:var(--blue)">developer.tesla.com</a>,
+        paste credentials below.
+      </p>
 
-      <div class="info-box info">
+      <div class="info-box info guided-only">
         <strong>Time needed:</strong> About 2-3 minutes. You'll need to sign in with the same
         Tesla account that's linked to your car.
       </div>
 
-      <ol class="guide-steps">
+      <ol class="guide-steps guided-only">
         <li>
           Open <a href="https://developer.tesla.com" target="_blank" rel="noopener">developer.tesla.com</a>
           in a new tab and sign in with your <strong>Tesla account</strong>
@@ -884,9 +1027,10 @@
             </div>
           </div>
           Then click <strong>Next</strong>.
-          <div class="screenshot-placeholder">
+          <div class="screenshot-wrap">
             <img src="static/screenshots/create-app.png" alt="Application Details form"
-                 onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
+                 onerror="this.parentElement.style.display='none'">
+            <div class="pulse-dot" style="top:90%;left:13%" title="Click Next"></div>
           </div>
         </li>
         <li>
@@ -920,9 +1064,10 @@
           </div>
           <span class="tip">The first URI is for this setup wizard. The second is for the HA Tesla Fleet integration &mdash; without it, adding the integration in HA will fail.<br>Leave "Allowed Returned URL(s)" empty &mdash; it's optional.</span>
           Then click <strong>Next</strong>.
-          <div class="screenshot-placeholder">
+          <div class="screenshot-wrap">
             <img src="static/screenshots/api-app-client.png" alt="Client Details form"
-                 onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
+                 onerror="this.parentElement.style.display='none'">
+            <div class="pulse-dot" style="top:92%;left:38%" title="Click Next"></div>
           </div>
         </li>
         <li>
@@ -934,9 +1079,10 @@
             If you have a Powerwall, also tick Energy Product Information and Energy Product Commands.
           </span>
           Then click <strong>Next</strong>. Skip the Billing Details page (click <strong>Submit</strong>).
-          <div class="screenshot-placeholder">
+          <div class="screenshot-wrap">
             <img src="static/screenshots/create-api-access.png" alt="API Scopes selection"
-                 onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
+                 onerror="this.parentElement.style.display='none'">
+            <div class="pulse-dot" style="top:95%;left:30%" title="Click Next"></div>
           </div>
         </li>
         <li>
@@ -947,12 +1093,41 @@
             Note: Tesla may show this page in your browser's language. The two fields you need
             are the UUID (Client ID) and the masked dots (Client Secret &mdash; click the eye icon to reveal it).
           </span>
-          <div class="screenshot-placeholder">
+          <div class="screenshot-wrap">
             <img src="static/screenshots/client-credentials.png" alt="Client credentials page"
-                 onerror="this.parentElement.innerHTML='<span class=caption>Screenshot coming soon</span>'">
+                 onerror="this.parentElement.style.display='none'">
+            <div class="pulse-dot" style="top:32%;left:35%" title="Copy Client ID"></div>
+            <div class="pulse-dot" style="top:38%;left:22%" title="Click eye icon to reveal Client Secret"></div>
           </div>
         </li>
       </ol>
+
+      <!-- Expert-mode compact copy fields for Tesla app registration -->
+      <div class="expert-only" style="margin-bottom:16px">
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px">
+          Create app at developer.tesla.com &rarr; "Authorization Code and Machine-to-Machine". Use these values:
+        </p>
+        <div class="copy-field">
+          <span class="field-label">Origin URL 1</span>
+          <span class="field-value" id="expert-origin-value"></span>
+          <button class="btn-copy" onclick="copyText(this, 'expert-origin-value')">Copy</button>
+        </div>
+        <div class="copy-field">
+          <span class="field-label">Origin URL 2</span>
+          <span class="field-value">https://my.home-assistant.io</span>
+          <button class="btn-copy" onclick="copyText(this, null, 'https://my.home-assistant.io')">Copy</button>
+        </div>
+        <div class="copy-field">
+          <span class="field-label">Redirect URI 1</span>
+          <span class="field-value" id="expert-redirect-value"></span>
+          <button class="btn-copy" onclick="copyText(this, 'expert-redirect-value')">Copy</button>
+        </div>
+        <div class="copy-field">
+          <span class="field-label">Redirect URI 2</span>
+          <span class="field-value">https://my.home-assistant.io/redirect/oauth</span>
+          <button class="btn-copy" onclick="copyText(this, null, 'https://my.home-assistant.io/redirect/oauth')">Copy</button>
+        </div>
+      </div>
 
       <hr class="divider">
 
@@ -985,12 +1160,15 @@
     <!-- ====== STEP 4: Partner Authentication ====== -->
     <div class="step-card" id="step-4">
       <h2>Verify with Tesla</h2>
-      <p class="subtitle">
+      <p class="subtitle guided-only">
         This step tells Tesla about your app and lets them verify your public key.
         It happens automatically &mdash; just click the button.
       </p>
+      <p class="subtitle expert-only">
+        Register as a Tesla partner. Tesla will verify your .well-known endpoint.
+      </p>
 
-      <div class="info-box info">
+      <div class="info-box info guided-only">
         <strong>What happens:</strong> We send your app credentials to Tesla. Tesla then
         connects to your public key URL to verify everything matches. This usually takes
         a few seconds.
@@ -1024,14 +1202,26 @@
     <!-- ====== STEP 5: OAuth & Connect ====== -->
     <div class="step-card" id="step-5">
       <h2>Connect Your Tesla Account</h2>
-      <p class="subtitle">
+      <p class="subtitle guided-only">
         Last step! Sign in with your Tesla account and give Home Assistant permission
         to access your vehicle data.
       </p>
+      <p class="subtitle expert-only">
+        OAuth sign-in with your Tesla account.
+      </p>
 
-      <div class="info-box info">
+      <div class="info-box info guided-only">
         <strong>What happens:</strong> A new window will open with Tesla's sign-in page.
         After you log in and approve access, you'll be redirected back here automatically.
+      </div>
+
+      <div class="guided-only" style="margin-top:16px">
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px">You'll see Tesla's consent screen — tick the permissions and click <strong>Allow</strong>:</p>
+        <div class="screenshot-wrap">
+          <img src="static/screenshots/select-api-options.png" alt="Tesla OAuth consent screen"
+               onerror="this.parentElement.style.display='none'">
+          <div class="pulse-dot" style="top:96%;left:24%" title="Click Allow"></div>
+        </div>
       </div>
 
       <div class="btn-row">
@@ -1055,12 +1245,50 @@
         <h2 style="font-size: 1.15rem; margin-bottom: 12px;">Next Steps</h2>
 
         <ol class="guide-steps" style="font-size: 0.95rem; margin-top: 12px;">
-          <li>In Home Assistant, go to <strong>Settings &rarr; Devices &amp; Services &rarr; Add Integration</strong> and search for <strong>Tesla Fleet</strong></li>
-          <li>Sign in with your Tesla account when prompted</li>
+          <li>In Home Assistant, go to <strong>Settings &rarr; Devices &amp; Services &rarr; Add Integration</strong> and search for <strong>Tesla Fleet</strong>
+            <div class="guided-only" style="margin-top:8px">
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/ha-integrations-add-integration.png" alt="HA Add Integration button"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:96%;left:93%" title="Click + Add integration"></div>
+              </div>
+              <div class="screenshot-wrap" style="margin-top:8px">
+                <img src="static/screenshots/ha-integrations-search-tesla.png" alt="Search for Tesla"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:28%;left:50%" title="Click Tesla"></div>
+              </div>
+              <div class="screenshot-wrap" style="margin-top:8px">
+                <img src="static/screenshots/ha-integration-click-tesla-fleet.png" alt="Select Tesla Fleet"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:19%;left:50%" title="Click Tesla Fleet"></div>
+              </div>
+            </div>
+          </li>
+          <li>Click <strong>Link account</strong>, then sign in with your Tesla account
+            <div class="guided-only" style="margin-top:8px">
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/ha-integration-link-tesla.png" alt="Link account to HA"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:55%;left:83%" title="Click Link account"></div>
+              </div>
+              <div class="screenshot-wrap" style="margin-top:8px">
+                <img src="static/screenshots/ha-integration-login-tesla.png" alt="Tesla sign in"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:62%;left:50%" title="Click Sign In"></div>
+              </div>
+            </div>
+          </li>
           <li>When asked for the <strong>domain</strong>, paste this:
             <div class="copy-row" style="margin-top: 8px;">
               <code id="ha-domain-value" style="background: var(--bg); padding: 6px 12px; border-radius: 6px; flex: 1; font-size: 0.9rem; word-break: break-all;"></code>
               <button class="btn-copy" onclick="copyText(this, 'ha-domain-value')">Copy</button>
+            </div>
+            <div class="guided-only" style="margin-top:8px">
+              <div class="screenshot-wrap">
+                <img src="static/screenshots/ha-integration-domain-reg.png" alt="Paste your domain here"
+                     onerror="this.parentElement.style.display='none'">
+                <div class="pulse-dot" style="top:72%;left:50%" title="Paste your domain and click Submit"></div>
+              </div>
             </div>
           </li>
           <li><strong>Enrol your vehicle key</strong> &mdash; open this link <strong>on your phone</strong> (Safari on iPhone):
@@ -1226,6 +1454,24 @@
     let currentStep = 1;
     let publicKeyUrl = '';
     let urlMethod = '';
+
+    // --- Wizard Mode (guided / expert) ---
+    function setWizardMode(mode) {
+      const isExpert = mode === 'expert';
+      document.body.classList.toggle('expert-mode', isExpert);
+      document.getElementById('mode-switch').classList.toggle('expert', isExpert);
+      document.getElementById('mode-guided-label').classList.toggle('active', !isExpert);
+      document.getElementById('mode-expert-label').classList.toggle('active', isExpert);
+      try { localStorage.setItem('wizard-mode', mode); } catch (_) {}
+    }
+    function toggleWizardMode() {
+      setWizardMode(document.body.classList.contains('expert-mode') ? 'guided' : 'expert');
+    }
+    // Restore saved mode
+    try {
+      const saved = localStorage.getItem('wizard-mode');
+      if (saved === 'expert') setWizardMode('expert');
+    } catch (_) {}
 
     // --- Init ---
     async function init() {
@@ -1690,6 +1936,11 @@
       document.getElementById('public-url-value').textContent = publicKeyUrl;
       document.getElementById('origin-value').textContent = publicKeyUrl;
       document.getElementById('redirect-value').textContent = publicKeyUrl + '/oauth/callback';
+      // Also update expert-mode copy fields
+      const eo = document.getElementById('expert-origin-value');
+      const er = document.getElementById('expert-redirect-value');
+      if (eo) eo.textContent = publicKeyUrl;
+      if (er) er.textContent = publicKeyUrl + '/oauth/callback';
     }
 
     function showCfFallback(reason) {
@@ -2174,6 +2425,8 @@
             const vState = sv ? sv.state : '';
             if (vState === 'offline' || vState === 'asleep') {
               setApiStatus(cardId, 'fail', `Vehicle is ${vState} — tap Wake Up and try again`);
+            } else if (section === 'drive_state') {
+              setApiStatus(cardId, 'warn', 'Location requires Vehicle Location scope — grant it on developer.tesla.com and re-authorize');
             } else {
               const keys = Object.keys(resp).filter(k => k !== 'id' && k !== 'user_id' && k !== 'vehicle_id' && k !== 'vin');
               setApiStatus(cardId, 'fail', `No ${section} in response (got: ${keys.join(', ') || 'empty'})`);

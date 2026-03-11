@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-03-11
+
+### Added
+
+- **Wizard mode toggle** — switch between "Guided" (step-by-step with
+  screenshots) and "Expert" (condensed, inputs only) modes. Persists via
+  localStorage across steps and page reloads
+- **22 screenshots** with pulsing red dot annotations showing exactly where
+  to click at each step:
+  - DuckDNS: landing page, GitHub sign-in, dashboard token
+  - Cloudflare: login, profile menu, API tokens, custom token creation,
+    permission scopes, confirmation, token copy (7-step guide)
+  - Tesla Developer: app creation, client details, API scopes, credentials
+  - Tesla OAuth: consent screen with scope checkboxes
+  - HA Integration: add integration, search, select Tesla Fleet, link
+    account, sign in, domain registration
+- **HA integration walkthrough** on completion page — guided screenshots
+  showing the full flow from "Add Integration" to domain paste
+
+### Fixed
+
+- Location test now shows amber "requires Vehicle Location scope" hint
+  instead of a confusing error when `drive_state` is missing from response
+- Removed unused `screenshot-placeholder` CSS (replaced by `screenshot-wrap`)
+
 ## [0.9.0] - 2026-03-11
 
 ### Security
@@ -45,9 +70,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Handle non-JSON Cloudflare API responses gracefully
 - Corrupt `state.json` now logs warning instead of silently failing
 
+### Added
+
+- **TLS cert expiry visible in wizard** — completion page shows cert
+  validity with color coding: green (>30 days), amber (<30 days),
+  red (expired). Cert auto-regenerates on proxy start when <30 days remain
+- TLS cert info included in proxy status API (`tls_cert.days_remaining`,
+  `tls_cert.expires`)
+- **Wizard mode toggle** — "Guided" mode (default) shows full step-by-step
+  instructions with screenshots; "Expert" mode shows condensed instructions
+  for experienced users. Mode persists across steps and page reloads
+
 ### Changed
 
-- TLS cert validity reduced from 10 years to 1 year
+- TLS cert validity reduced from 10 years to 1 year (auto-renews)
 - Remove unused `share:rw` volume mount from config.yaml
 - Remove `curl` from runtime image (only needed at build time)
 - Dockerfile uses separate build stage for cloudflared download
