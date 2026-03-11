@@ -81,8 +81,15 @@ class CloudflareAPI:
             zones.append(zone)
         return zones
 
-    async def create_tunnel(self, account_id: str, name: str) -> dict:
-        """Create a named tunnel. Returns {id, token} or {error}."""
+    async def create_or_reuse_tunnel(self, account_id: str, name: str) -> dict:
+        """Create a named tunnel, or reuse existing one. Returns {id, token} or {error}."""
+        # Try to find existing tunnel first
+        existing = await self._find_tunnel(account_id, name)
+        if existing:
+            logger.info("Reusing existing tunnel '%s' (%s)", name, existing["id"])
+            return existing
+
+        # Create new tunnel
         tunnel_secret = base64.b64encode(os.urandom(32)).decode()
         data = await self._post(f"/accounts/{account_id}/cfd_tunnel", json={
             "name": name,
@@ -92,11 +99,6 @@ class CloudflareAPI:
         if not data.get("success"):
             errors = data.get("errors", [{}])
             msg = errors[0].get("message", "Failed to create tunnel")
-            # If tunnel already exists, try to find it
-            if "already exists" in msg.lower() or errors[0].get("code") == 52007:
-                existing = await self._find_tunnel(account_id, name)
-                if existing:
-                    return existing
             return {"error": msg}
 
         tunnel = data["result"]
@@ -104,7 +106,7 @@ class CloudflareAPI:
         # Get the tunnel token
         token_data = await self._get(f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token")
         token = token_data.get("result", "")
-        logger.info("Got tunnel token (length=%d, type=%s)", len(str(token)), type(token).__name__)
+        logger.info("Created new tunnel '%s' (%s)", name, tunnel_id)
 
         return {"id": tunnel_id, "token": token}
 

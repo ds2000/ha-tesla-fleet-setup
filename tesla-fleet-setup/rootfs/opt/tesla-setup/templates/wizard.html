@@ -140,11 +140,7 @@
     .status-icon.running { background: var(--warning); animation: pulse 1.5s infinite; }
     .status-icon.success { background: var(--success); }
     .status-icon.error { background: var(--error); }
-    .cf-step { padding: 6px 0; color: var(--text-dim); font-size: 0.95rem; }
-    .cf-step.active { color: var(--text); }
-    .cf-step.done { color: var(--success); }
-    .cf-step.failed { color: var(--error); }
-    .cf-step-icon { display: inline-block; width: 20px; text-align: center; }
+    .cf-steps .status-row { margin-bottom: 4px; padding: 8px 12px; }
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
@@ -803,12 +799,12 @@
           <p id="cf-status" style="margin-top:8px; display:none"></p>
 
           <!-- Step-by-step progress for tunnel setup -->
-          <div id="cf-progress" style="display:none; margin-top:12px">
-            <div class="cf-step" id="cf-step-verify"><span class="cf-step-icon">⏳</span> Verifying API token</div>
-            <div class="cf-step" id="cf-step-tunnel"><span class="cf-step-icon">⏳</span> Creating tunnel</div>
-            <div class="cf-step" id="cf-step-config"><span class="cf-step-icon">⏳</span> Configuring tunnel routes</div>
-            <div class="cf-step" id="cf-step-dns"><span class="cf-step-icon">⏳</span> Creating DNS record</div>
-            <div class="cf-step" id="cf-step-start"><span class="cf-step-icon">⏳</span> Starting cloudflared</div>
+          <div id="cf-progress" class="cf-steps" style="display:none; margin-top:12px">
+            <div class="status-row" id="cf-step-verify"><div class="status-icon pending" id="cf-icon-verify"></div><span>Verifying API token</span></div>
+            <div class="status-row" id="cf-step-tunnel"><div class="status-icon pending" id="cf-icon-tunnel"></div><span>Creating tunnel</span></div>
+            <div class="status-row" id="cf-step-config"><div class="status-icon pending" id="cf-icon-config"></div><span>Configuring tunnel routes</span></div>
+            <div class="status-row" id="cf-step-dns"><div class="status-icon pending" id="cf-icon-dns"></div><span>Creating DNS record</span></div>
+            <div class="status-row" id="cf-step-start"><div class="status-icon pending" id="cf-icon-start"></div><span>Starting cloudflared</span></div>
           </div>
 
           <div class="btn-row" style="margin-top:12px">
@@ -1800,13 +1796,10 @@
     }
 
     function cfSetStepState(stepId, state) {
-      const el = document.getElementById('cf-step-' + stepId);
-      if (!el) return;
-      const icon = el.querySelector('.cf-step-icon');
-      el.className = 'cf-step ' + state;
-      if (state === 'active') icon.textContent = '⏳';
-      else if (state === 'done') icon.textContent = '✓';
-      else if (state === 'failed') icon.textContent = '✗';
+      const icon = document.getElementById('cf-icon-' + stepId);
+      if (!icon) return;
+      icon.className = 'status-icon ' + (state === 'done' ? 'success' : state === 'failed' ? 'error' : state === 'active' ? 'running' : 'pending');
+      icon.innerHTML = state === 'done' ? '\u2713' : state === 'failed' ? '!' : state === 'active' ? '<span class="spinner"></span>' : '';
     }
 
     function cfMarkCompleted(steps) {
@@ -1830,14 +1823,10 @@
       btn.textContent = 'Setting up...';
       status.style.display = 'none';
 
-      // Show progress steps and set first as active
+      // Show progress steps and reset all to pending
       const progress = document.getElementById('cf-progress');
       progress.style.display = 'block';
-      ['verify', 'tunnel', 'config', 'dns', 'start'].forEach(s => {
-        const el = document.getElementById('cf-step-' + s);
-        el.className = 'cf-step';
-        el.querySelector('.cf-step-icon').textContent = '⏳';
-      });
+      ['verify', 'tunnel', 'config', 'dns', 'start'].forEach(s => cfSetStepState(s, 'pending'));
       cfSetStepState('verify', 'active');
 
       try {

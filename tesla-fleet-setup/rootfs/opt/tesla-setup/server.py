@@ -593,7 +593,7 @@ async def api_cloudflare_auto_setup(request):
         return web.json_response({"success": False, "error": "No Cloudflare account found",
                                    "step": "tunnel", "completed_steps": completed})
 
-    tunnel_result = await cf.create_tunnel(account_id, "ha-tesla-fleet")
+    tunnel_result = await cf.create_or_reuse_tunnel(account_id, "ha-tesla-fleet")
     if "error" in tunnel_result:
         return web.json_response({"success": False, "error": tunnel_result["error"],
                                    "step": "tunnel", "completed_steps": completed})
