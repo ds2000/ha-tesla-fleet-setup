@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-03-12
+
+### Added
+
+- **"Don't have a domain?" baby steps** — collapsible guide walks beginners
+  through creating a Cloudflare account and buying a cheap domain from CF
+  Registrar
+- **Expert mode choice cards** — DuckDNS vs Cloudflare Tunnel shown as
+  equal clickable options upfront
+- **Cloudflare token permission guide** — exact dropdown values spelled out
+  (Account/Zone, Tunnel/DNS, Edit/Read) so anyone can follow along
+- Cloudflare section hidden in guided mode until DuckDNS reachability test
+  fails — reduces confusion for users where DuckDNS works fine
+
+### Fixed
+
+- External reachability test for DuckDNS now checks actual HTTPS endpoint
+- Auto-populate Step 3 URLs after Cloudflare tunnel setup
+
 ## [0.9.1] - 2026-03-11
 
 ### Added
