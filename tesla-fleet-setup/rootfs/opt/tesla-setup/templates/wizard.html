@@ -867,18 +867,70 @@
           and a domain on Cloudflare (~&euro;1/year for a .xyz).</p>
 
         <div id="cf-setup-form">
+
+          <!-- Guided: get a domain first if you don't have one -->
+          <details class="guided-only" style="margin-bottom:16px">
+            <summary style="font-weight:600">Don't have a domain yet? Get one in 2 minutes</summary>
+            <div class="details-content" style="padding:12px">
+              <p style="margin-bottom:10px">
+                A Cloudflare Tunnel needs a domain name. If you don't own one, you can buy a
+                cheap one directly from Cloudflare for about <strong>&euro;1/year</strong>.
+              </p>
+
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">1</span>
+                  <span style="font-weight:600">Create a free Cloudflare account</span>
+                </div>
+                <p style="color:var(--text-muted);font-size:0.9rem">
+                  Go to <a href="https://dash.cloudflare.com/sign-up" target="_blank" style="color:var(--accent)">dash.cloudflare.com/sign-up</a>
+                  and sign up with your email. No credit card needed for the account itself.
+                </p>
+              </div>
+
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">2</span>
+                  <span style="font-weight:600">Buy a domain from Cloudflare Registrar</span>
+                </div>
+                <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:8px">
+                  Once logged in, click <strong>Domain Registration</strong> &rarr; <strong>Register Domains</strong>
+                  in the left sidebar. Search for a domain name you like.
+                </p>
+                <div class="info-box info" style="margin-bottom:8px">
+                  <strong>Tip:</strong> <code>.xyz</code> domains are the cheapest (about &euro;1/year).
+                  Pick anything you want &mdash; e.g. <code>myha-setup.xyz</code> or <code>smith-home.xyz</code>.
+                  <span style="color:var(--warning)">The name must not contain "tesla"</span> &mdash;
+                  Tesla's developer portal rejects it.
+                </div>
+                <p style="color:var(--text-muted);font-size:0.9rem">
+                  Click <strong>Purchase</strong>, enter your payment details, and complete the order.
+                  The domain is automatically added to your Cloudflare account &mdash; no DNS
+                  transfer or nameserver changes needed.
+                </p>
+              </div>
+
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="background:var(--success);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">&#10003;</span>
+                  <span style="font-weight:600">Done!</span>
+                </div>
+                <p style="color:var(--text-muted);font-size:0.9rem">
+                  Your new domain is ready on Cloudflare. Now follow the steps below to create
+                  an API token and set up the tunnel.
+                </p>
+              </div>
+            </div>
+          </details>
+
           <div class="info-box info guided-only" style="margin-bottom:16px">
-            <strong>One-time setup:</strong> Create a Cloudflare API token at
-            <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:var(--accent)">dash.cloudflare.com/profile/api-tokens</a>
-            with these permissions:<br>
-            &bull; Account &rarr; Cloudflare Tunnel &rarr; Edit<br>
-            &bull; Zone &rarr; Zone &rarr; Read<br>
-            &bull; Zone &rarr; DNS &rarr; Edit
+            <strong>Next:</strong> Create a Cloudflare API token so this add-on can set up the tunnel for you.
+            Follow the steps below &mdash; it takes about 1 minute.
           </div>
 
           <!-- Cloudflare screenshot guide (guided-only) -->
           <details class="guided-only" style="margin-bottom:16px" open>
-            <summary>How to create a Cloudflare API token (step by step)</summary>
+            <summary style="font-weight:600">How to create a Cloudflare API token (step by step)</summary>
             <div class="details-content" style="padding:12px">
               <p style="margin-bottom:8px"><strong>1.</strong> Log in at <a href="https://dash.cloudflare.com" target="_blank" style="color:var(--accent)">dash.cloudflare.com</a></p>
               <div class="screenshot-wrap">
