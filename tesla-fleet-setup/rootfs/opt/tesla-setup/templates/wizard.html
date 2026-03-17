@@ -1219,7 +1219,7 @@
             <option value="https://fleet-api.prd.eu.vn.cloud.tesla.com">Europe / Middle East / Africa</option>
             <option value="https://fleet-api.prd.na.vn.cloud.tesla.com">Asia-Pacific (Australia, Japan, Korea)</option>
           </select>
-          <span class="tip" style="margin-top: 4px; display: block;">Choose where your Tesla account is registered. If unsure, this will be auto-detected after sign-in.</span>
+          <span class="tip" style="margin-top: 4px; display: block;">Choose where your Tesla account is registered. This must match your account region &mdash; the wrong region will prevent live location data from working.</span>
         </div>
         <div class="input-group">
           <label for="input-client-id">Client ID</label>
@@ -2304,7 +2304,8 @@
         if (data.success) {
           icon.className = 'status-icon success';
           icon.textContent = '\u2713';
-          text.textContent = 'Verified! Tesla confirmed your app registration.';
+          const regionLabel = data.region_name || 'your region';
+          text.textContent = 'Verified! Tesla confirmed your app registration (' + regionLabel + ').';
           setTimeout(() => goToStep(5), 800);
         } else {
           icon.className = 'status-icon error';

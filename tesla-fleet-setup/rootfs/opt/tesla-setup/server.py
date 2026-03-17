@@ -228,12 +228,16 @@ async def api_register_partner(request):
 
     domain = urlparse(state["public_key_url"]).hostname
 
-    result = await tesla_api.register_partner(state["client_id"], state["client_secret"], domain)
+    api_base = state.get("api_region")
+    result = await tesla_api.register_partner(state["client_id"], state["client_secret"], domain, api_base)
 
     if result["success"]:
         state["partner_registered"] = True
         state["step"] = max(state["step"], 5)
         save_state()
+        # Include friendly region name in response
+        region_url = result.get("region", api_base or tesla_api.get_api_base())
+        result["region_name"] = tesla_api.REGION_NAMES.get(region_url, region_url)
 
     return web.json_response(result)
 

@@ -16,6 +16,12 @@ DEFAULT_API_BASE = TESLA_API_BASE_NA
 
 # Known valid Fleet API endpoints — used for region validation
 VALID_FLEET_BASES = {TESLA_API_BASE_NA, TESLA_API_BASE_EU}
+
+# Friendly names for display in the wizard
+REGION_NAMES = {
+    TESLA_API_BASE_NA: "North America, Asia-Pacific",
+    TESLA_API_BASE_EU: "Europe, Middle East, Africa",
+}
 _TESLA_FLEET_RE = re.compile(r"^https://fleet-api\.prd\.[a-z]{2}\.vn\.cloud\.tesla\.com$")
 
 PRIVATE_KEY_PATH = Path("/data/keys/private.pem")
@@ -82,28 +88,21 @@ def _sanitize_error(body: str) -> str:
     return body
 
 
-async def register_partner(client_id: str, client_secret: str, domain: str) -> dict:
+async def register_partner(client_id: str, client_secret: str, domain: str, api_base: str | None = None) -> dict:
     """
     Complete the partner authentication flow:
     1. Get a partner auth token from Tesla
     2. Register the partner account (triggers Tesla to verify .well-known/appkeys)
 
-    Registers against both NA and EU endpoints to cover all regions.
+    Registers on the specified region endpoint only.
     """
-    results = []
-    for api_base in [TESLA_API_BASE_NA, TESLA_API_BASE_EU]:
-        result = await _register_partner_region(client_id, client_secret, domain, api_base)
-        if result["success"]:
-            results.append(result)
-        else:
-            logger.info("Partner registration on %s: %s", api_base, result.get("error", "failed"))
+    if api_base is None:
+        api_base = _api_base
 
-    if results:
-        logger.info("Partner registration successful on %d region(s)", len(results))
-        return results[0]
-
-    # Both failed — return a helpful error
-    return {"success": False, "step": "register", "error": "Registration failed on all regions. Check your credentials and that the public key URL is accessible."}
+    result = await _register_partner_region(client_id, client_secret, domain, api_base)
+    if result["success"]:
+        logger.info("Partner registration successful on %s", api_base)
+    return result
 
 
 async def _register_partner_region(client_id: str, client_secret: str, domain: str, api_base: str) -> dict:
@@ -141,7 +140,7 @@ async def _register_partner_region(client_id: str, client_secret: str, domain: s
 
             body = await resp.json()
             logger.info("Partner registration successful on %s", api_base)
-            return {"success": True, "data": body}
+            return {"success": True, "data": body, "region": api_base}
 
 
 def get_oauth_url(client_id: str, redirect_uri: str, state: str) -> str:
