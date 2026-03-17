@@ -1296,11 +1296,15 @@
       </div>
 
       <div class="guided-only" style="margin-top:16px">
-        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px">You'll see Tesla's consent screen — tick the permissions and click <strong>Allow</strong>:</p>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px">You'll see Tesla's consent screen &mdash; make sure <strong>all permissions are ticked</strong> (especially <strong>Vehicle Location</strong>) and click <strong>Allow</strong>:</p>
         <div class="screenshot-wrap">
-          <img src="static/screenshots/select-api-options.png" alt="Tesla OAuth consent screen"
+          <img src="static/screenshots/tesla-oauth-allow-permissions.png" alt="Tesla OAuth consent screen — tick all permissions and click Allow"
                onerror="this.parentElement.style.display='none'">
-          <div class="pulse-dot" style="top:96%;left:24%" title="Click Allow"></div>
+          <div class="pulse-dot" style="top:93%;left:24%" title="Click Allow"></div>
+        </div>
+        <div class="info-box warning" style="margin-top:8px">
+          <strong>Important:</strong> If you skip <strong>Vehicle Location</strong>, live location tracking won't work.
+          You can update permissions later at <strong>accounts.tesla.com &rarr; Security &rarr; Third-Party Apps</strong>.
         </div>
       </div>
 
