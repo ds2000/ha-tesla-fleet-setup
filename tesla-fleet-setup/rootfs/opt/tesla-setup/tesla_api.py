@@ -2,6 +2,7 @@
 
 import logging
 import re
+import ssl
 import urllib.parse
 from pathlib import Path
 
@@ -291,7 +292,12 @@ async def _proxy_request(access_token: str, vin: str, command: str,
     headers = {"Authorization": f"Bearer {access_token}"}
 
     try:
-        connector = aiohttp.TCPConnector(ssl=False)
+        # Pin the self-signed TLS cert instead of disabling verification
+        import proxy as _proxy_mod
+        ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_ctx.load_verify_locations(str(_proxy_mod.TLS_CERT_PATH))
+        ssl_ctx.check_hostname = False  # cert uses IP SAN, not hostname
+        connector = aiohttp.TCPConnector(ssl=ssl_ctx)
         async with aiohttp.ClientSession(connector=connector) as session:
             async with session.post(url, headers=headers, json=body or {},
                                      timeout=aiohttp.ClientTimeout(total=15)) as resp:

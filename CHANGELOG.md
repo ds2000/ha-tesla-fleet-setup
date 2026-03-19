@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.6] - 2026-03-19
+
+### Security
+
+- Pin self-signed TLS cert for proxy commands instead of disabling TLS verification (`ssl=False`)
+- Gate `/api/credentials-for-ha` endpoint — require X-Ingress-Path header (403 without HA ingress)
+- Validate UPnP SSDP location URLs are private RFC-1918 addresses to prevent SSRF
+- Add 64KB XML size cap on UPnP responses to prevent billion-laughs DoS
+- Add security headers on all responses: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy
+- Add input length limits (128 chars) on credential fields
+- Tighten DuckDNS token regex to UUID format
+- Sanitize certbot error output — no raw details returned to browser
+- Clear VIN cache on wizard reset
+
+### Changed
+
+- Replace deprecated `asyncio.ensure_future` with `asyncio.create_task`
+- Replace deprecated `asyncio.get_event_loop()` with `asyncio.get_running_loop()`
+- Narrow `except BaseException` to `except Exception` in save_state
+- Narrow `except Exception` to specific `JSONDecodeError`/`ContentTypeError` in command handler
+- Use `logger.exception` instead of `logger.error` in except blocks for full tracebacks
+- Use `Path.chmod()` instead of `os.chmod()` in duckdns module
+- Use `Path.read_text()` instead of bare `open()` in tests
+- Remove unused `miniupnpc` package from Dockerfile (UPnP is pure Python)
+- Remove unused `os` import from duckdns module
+
+### Added
+
+- 18 new tests (103 → 121): credential exposure, security headers, SSRF prevention,
+  ingress access control, input length limits
+
 ## [0.1.5] - 2026-03-06
 
 ### Changed

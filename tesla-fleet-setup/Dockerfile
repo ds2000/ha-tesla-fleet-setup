@@ -36,13 +36,12 @@ ARG BUILD_VERSION=dev
 COPY --from=go-builder /tesla-http-proxy /usr/local/bin/tesla-http-proxy
 COPY --from=cf-downloader /cloudflared /usr/local/bin/cloudflared
 
-# Install Python, pip, certbot, and UPnP client (no curl needed at runtime)
+# Install Python, pip, and certbot (no curl needed at runtime)
 RUN apk add --no-cache \
     python3 \
     py3-pip \
     py3-cryptography \
-    certbot \
-    miniupnpc
+    certbot
 
 # Install Python dependencies
 COPY requirements.txt /tmp/

@@ -13,6 +13,7 @@ Tests for:
 import stat
 from unittest.mock import AsyncMock, patch
 
+import duckdns
 import keygen
 import proxy
 import server
@@ -36,6 +37,18 @@ class TestCredentialExposure:
         resp = await client.get("/api/status")
         body = await resp.text()
         assert "test-refresh-token" not in body
+
+    async def test_status_never_exposes_duckdns_token(self, client, setup_complete_state):
+        server.state["duckdns_token"] = "secret-duckdns-token"
+        resp = await client.get("/api/status")
+        body = await resp.text()
+        assert "secret-duckdns-token" not in body
+
+    async def test_status_never_exposes_cf_tunnel_token(self, client, setup_complete_state):
+        server.state["cf_tunnel_token"] = "secret-cf-token"
+        resp = await client.get("/api/status")
+        body = await resp.text()
+        assert "secret-cf-token" not in body
 
     def test_sanitize_redacts_tokens(self):
         body = '{"access_token":"secret123","refresh_token":"refresh456"}'
@@ -313,6 +326,89 @@ class TestSubdomainValidation:
     def test_rejects_too_long(self):
         result = server._clean_subdomain("a" * 64)
         assert result == ""
+
+
+class TestCredentialsForHA:
+    """Test credentials-for-ha endpoint access control."""
+
+    async def test_rejected_without_ingress_header(self, client, setup_complete_state):
+        resp = await client.get("/api/credentials-for-ha")
+        assert resp.status == 403
+
+    async def test_allowed_with_ingress_header(self, client, setup_complete_state):
+        resp = await client.get("/api/credentials-for-ha",
+                                headers={"X-Ingress-Path": "/api/hassio_ingress/abc"})
+        assert resp.status == 200
+        data = await resp.json()
+        assert data["client_id"] == "test-client-id"
+
+    async def test_returns_400_when_no_credentials(self, client):
+        resp = await client.get("/api/credentials-for-ha",
+                                headers={"X-Ingress-Path": "/api/hassio_ingress/abc"})
+        assert resp.status == 400
+
+
+class TestSecurityHeaders:
+    """Test that security headers are present on responses."""
+
+    async def test_has_x_content_type_options(self, client):
+        resp = await client.get("/api/status")
+        assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+    async def test_has_x_frame_options(self, client):
+        resp = await client.get("/api/status")
+        assert resp.headers.get("X-Frame-Options") == "DENY"
+
+    async def test_has_referrer_policy(self, client):
+        resp = await client.get("/api/status")
+        assert resp.headers.get("Referrer-Policy") == "no-referrer"
+
+    async def test_has_csp(self, client):
+        resp = await client.get("/api/status")
+        assert "Content-Security-Policy" in resp.headers
+
+
+class TestCredentialLengthLimits:
+    """Test that credential fields have length limits."""
+
+    async def test_rejects_oversized_client_id(self, client):
+        resp = await client.post("/api/save-credentials", json={
+            "client_id": "x" * 200,
+            "client_secret": "valid-secret",
+        })
+        assert resp.status == 400
+
+    async def test_rejects_oversized_client_secret(self, client):
+        resp = await client.post("/api/save-credentials", json={
+            "client_id": "valid-id",
+            "client_secret": "x" * 200,
+        })
+        assert resp.status == 400
+
+
+class TestUPnPSSRFPrevention:
+    """Test that UPnP SSDP location is validated as private IP."""
+
+    def test_rejects_public_ip_location(self):
+        assert duckdns._is_private_url("http://8.8.8.8:1900/desc.xml") is False
+
+    def test_rejects_metadata_ip(self):
+        assert duckdns._is_private_url("http://169.254.169.254/latest/") is False
+
+    def test_rejects_link_local(self):
+        assert duckdns._is_private_url("http://169.254.1.1:1900/desc.xml") is False
+
+    def test_accepts_private_ip(self):
+        assert duckdns._is_private_url("http://192.168.1.1:1900/desc.xml") is True
+
+    def test_accepts_10_network(self):
+        assert duckdns._is_private_url("http://10.0.0.1:1900/desc.xml") is True
+
+    def test_rejects_hostname(self):
+        assert duckdns._is_private_url("http://evil.com/desc.xml") is False
+
+    def test_rejects_empty(self):
+        assert duckdns._is_private_url("") is False
 
 
 class TestProxySecurity:

@@ -1,7 +1,7 @@
 """Tests for tesla-http-proxy management."""
 
-import os
 import stat
+from pathlib import Path
 from unittest.mock import patch
 
 import proxy
@@ -24,31 +24,28 @@ class TestProxyAvailability:
 class TestTLSCerts:
     def test_generates_tls_certs(self):
         cert_path, key_path = proxy.ensure_tls_certs()
-        assert os.path.exists(cert_path)
-        assert os.path.exists(key_path)
+        assert Path(cert_path).exists()
+        assert Path(key_path).exists()
 
     def test_tls_key_permissions(self):
         _, key_path = proxy.ensure_tls_certs()
-        mode = os.stat(key_path).st_mode
+        mode = Path(key_path).stat().st_mode
         assert stat.S_IMODE(mode) == 0o600
 
     def test_tls_cert_is_valid_pem(self):
         cert_path, _ = proxy.ensure_tls_certs()
-        content = open(cert_path).read()
-        assert "BEGIN CERTIFICATE" in content
+        assert "BEGIN CERTIFICATE" in Path(cert_path).read_text()
 
     def test_tls_key_is_valid_pem(self):
         _, key_path = proxy.ensure_tls_certs()
-        content = open(key_path).read()
-        assert "BEGIN PRIVATE KEY" in content
+        assert "BEGIN PRIVATE KEY" in Path(key_path).read_text()
 
     def test_idempotent(self):
         cert1, key1 = proxy.ensure_tls_certs()
         cert2, key2 = proxy.ensure_tls_certs()
         assert cert1 == cert2
         assert key1 == key2
-        # Content should be the same
-        assert open(cert1).read() == open(cert2).read()
+        assert Path(cert1).read_text() == Path(cert2).read_text()
 
     def test_cert_has_san(self):
         from cryptography import x509

@@ -100,7 +100,7 @@ def save_state():
         fd.close()
         os.chmod(fd.name, 0o600)
         os.replace(fd.name, STATE_PATH)
-    except BaseException:
+    except Exception:
         fd.close()
         os.unlink(fd.name)
         raise
@@ -203,6 +203,8 @@ async def api_save_credentials(request):
 
     if not client_id or not client_secret:
         return web.json_response({"error": "Both client_id and client_secret are required"}, status=400)
+    if len(client_id) > 128 or len(client_secret) > 128:
+        return web.json_response({"error": "Credential fields too long (max 128 chars)"}, status=400)
 
     state["client_id"] = client_id
     state["client_secret"] = client_secret
@@ -450,7 +452,7 @@ async def api_command(request):
         return web.json_response({"success": False, "error": "Invalid command"}, status=400)
     try:
         body = await request.json()
-    except Exception:
+    except (json.JSONDecodeError, aiohttp.ContentTypeError):
         body = None
     # Route through signing proxy if it's running (required for Vehicle Command Protocol)
     use_proxy = proxy_manager.get_status().get("running", False)
@@ -492,9 +494,12 @@ async def api_inject_credentials(request):
 async def api_credentials_for_ha(request):
     """Return client_id and client_secret for manual HA credential entry.
 
-    Only served via HA ingress (same-machine access). Used as fallback
-    when automatic injection fails.
+    Only served via HA ingress (same-machine access). Rejects requests
+    that don't come through the ingress proxy.
     """
+    # Require X-Ingress-Path header — only present when accessed via HA ingress
+    if not request.headers.get("X-Ingress-Path"):
+        return web.json_response({"error": "This endpoint is only available via Home Assistant ingress"}, status=403)
     if not state["client_id"] or not state["client_secret"]:
         return web.json_response({"error": "No credentials saved"}, status=400)
     return web.json_response({
@@ -737,6 +742,7 @@ async def api_reset(request):
         "duckdns_token": None,
     }
     save_state()
+    _vin_cache.clear()
     await proxy_manager.stop()
     await duckdns.stop_all()
     await tunnel.stop()
@@ -817,8 +823,20 @@ async def on_shutdown(app):
     await tunnel.stop()
 
 
+async def _add_security_headers(request, response):
+    """Add security headers to all responses."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'unsafe-inline'; "
+        "img-src 'self' data:; style-src 'unsafe-inline';"
+    )
+
+
 def create_app() -> web.Application:
     app = web.Application()
+    app.on_response_prepare.append(_add_security_headers)
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
 

@@ -30,7 +30,7 @@ to a ~10 minute guided flow.
 ## Commands
 
 ```bash
-# Tests (93 tests — keygen, proxy, server API, security)
+# Tests (121 tests — keygen, proxy, server API, security)
 python3 -m pytest tests/ -v
 
 # Lint (ruff with bandit security rules)
@@ -123,7 +123,7 @@ After setup completes, `tesla-http-proxy` runs on port 4443:
 ## Security Requirements
 
 ### Always run before committing or releasing:
-1. `python3 -m pytest tests/ -v` — all 93 tests must pass
+1. `python3 -m pytest tests/ -v` — all 121 tests must pass
 2. `python3 -m ruff check tesla-fleet-setup/rootfs/opt/tesla-setup/ tests/` — must be clean
 3. `python3 -m pip_audit -r tesla-fleet-setup/requirements.txt -r requirements-dev.txt` — no known CVEs
 4. Check `pip list --outdated` and update to latest stable versions

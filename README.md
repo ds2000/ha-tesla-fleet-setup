@@ -2,7 +2,7 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/ds2000/ha-tesla-fleet-setup)](https://github.com/ds2000/ha-tesla-fleet-setup/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-103%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-121%20passed-brightgreen)]()
 
 A Home Assistant add-on that turns the complex Tesla Fleet API setup into a
 guided 10-minute wizard — and then keeps running as a **signing proxy** so
@@ -121,8 +121,19 @@ Any integration supporting the Tesla Fleet API proxy protocol can use
   cleared after use to prevent replay
 - **Separate TLS and signing keys** -- the proxy's TLS certificate uses a
   different key pair from the Tesla command-signing key
-- **103 automated tests** -- including security tests for credential exposure,
-  tunnel isolation, OAuth replay, file permissions, and input validation
+- **Pinned TLS verification** -- proxy commands verify the self-signed cert
+  instead of disabling TLS validation
+- **Ingress-gated credential endpoint** -- sensitive credential API only
+  accessible through Home Assistant ingress
+- **Security headers** -- CSP, X-Frame-Options, X-Content-Type-Options, and
+  Referrer-Policy on all responses
+- **SSRF protection** -- UPnP discovery validates that device URLs are private
+  RFC-1918 addresses before fetching
+- **Input length limits** -- credential fields enforce maximum length to prevent
+  abuse
+- **121 automated tests** -- including 31 security tests for credential exposure,
+  SSRF prevention, tunnel isolation, OAuth replay, file permissions, security
+  headers, and input validation
 
 ## Local Development
 
@@ -130,7 +141,7 @@ Any integration supporting the Tesla Fleet API proxy protocol can use
 # Install dev dependencies
 pip install -r requirements-dev.txt
 
-# Run tests (103 tests)
+# Run tests (121 tests)
 python3 -m pytest tests/ -v
 
 # Lint (ruff with bandit security rules)

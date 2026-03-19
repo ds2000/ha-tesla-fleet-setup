@@ -10,8 +10,8 @@ verifies the .well-known endpoint and revokes the key if it's unreachable.
 """
 
 import asyncio
+import ipaddress
 import logging
-import os
 import re
 import shutil
 import socket
@@ -99,15 +99,40 @@ def _ssdp_discover(lan_ip: str | None, timeout: float = 5.0) -> str | None:
     return None
 
 
+def _is_private_url(url: str) -> bool:
+    """Check that a URL's host is a private RFC-1918 IP (not cloud metadata)."""
+    try:
+        host = urlparse(url).hostname
+        if not host:
+            return False
+        addr = ipaddress.ip_address(host)
+        # Allow RFC-1918 private addresses (10.x, 172.16-31.x, 192.168.x)
+        # Block link-local (169.254.x.x) — includes cloud metadata 169.254.169.254
+        return addr.is_private and not addr.is_link_local
+    except ValueError:
+        # Hostname, not IP — reject to prevent DNS rebinding
+        return False
+
+
 async def _find_control_url(location: str) -> str | None:
     """Fetch IGD root description XML and find the WANIPConnection control URL."""
+    # Validate location is a private LAN address to prevent SSRF
+    if not _is_private_url(location):
+        logger.warning("UPnP: rejecting non-private SSDP location: %s", location)
+        return None
+
     try:
         async with aiohttp.ClientSession() as session, session.get(location, timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status != 200:
                 return None
             xml_text = await resp.text()
 
-        root = ElementTree.fromstring(xml_text)  # noqa: S314 — trusted local network device
+        # Cap XML size to prevent billion-laughs DoS
+        if len(xml_text) > 65536:
+            logger.warning("UPnP: oversized XML response (%d bytes), skipping", len(xml_text))
+            return None
+
+        root = ElementTree.fromstring(xml_text)  # noqa: S314
 
         # Search for WANIPConnection or WANPPPConnection service
         for service in root.iter("{urn:schemas-upnp-org:device-1-0}service"):
@@ -183,7 +208,7 @@ async def open_port_upnp(port: int = HTTPS_PORT, ext_port: int | None = None) ->
             return {"success": False, "error": "Could not detect LAN IP address"}
 
         # SSDP discovery — find IGD device
-        location = await asyncio.get_event_loop().run_in_executor(
+        location = await asyncio.get_running_loop().run_in_executor(
             None, _ssdp_discover, lan_ip, 5.0
         )
         if not location:
@@ -230,8 +255,8 @@ async def update_ip(subdomain: str, token: str) -> bool:
                 else:
                     logger.error("DuckDNS update failed: %s", text.strip())
                 return ok
-    except Exception as e:
-        logger.error("DuckDNS update error: %s", e)
+    except Exception:
+        logger.exception("DuckDNS update error")
         return False
 
 
@@ -267,7 +292,7 @@ def start_updater(subdomain: str, token: str):
     """Start the periodic IP updater."""
     global _updater_task
     stop_updater()
-    _updater_task = asyncio.ensure_future(_updater_loop(subdomain, token))
+    _updater_task = asyncio.create_task(_updater_loop(subdomain, token))
     logger.info("DuckDNS updater started for %s.duckdns.org", subdomain)
 
 
@@ -282,7 +307,7 @@ def stop_updater():
 # ── Let's Encrypt certificate ────────────────────────────────────────────────
 
 _SAFE_SUBDOMAIN_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
-_SAFE_TOKEN_RE = re.compile(r"^[a-f0-9-]+$")
+_SAFE_TOKEN_RE = re.compile(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$")
 
 
 def _write_hook_scripts(subdomain: str, token: str):
@@ -313,8 +338,8 @@ def _write_hook_scripts(subdomain: str, token: str):
         f'curl -s "{DUCKDNS_UPDATE_URL}?domains={subdomain}&token={token}'
         '&txt=&clear=true"\n'
     )
-    os.chmod(auth, 0o700)
-    os.chmod(cleanup, 0o700)
+    auth.chmod(0o700)
+    cleanup.chmod(0o700)
     return str(auth), str(cleanup)
 
 
@@ -358,13 +383,13 @@ async def obtain_cert(subdomain: str, token: str) -> dict:
     if proc.returncode != 0:
         err = stderr.decode().strip() or stdout.decode().strip()
         logger.error("certbot failed (exit %d): %s", proc.returncode, err)
-        return {"success": False, "error": f"certbot failed: {err[:200]}"}
+        return {"success": False, "error": "Certificate request failed. Check add-on logs for details."}
 
     # Copy certs to our known paths
     if (live_dir / "fullchain.pem").exists():
         shutil.copy2(live_dir / "fullchain.pem", CERT_PATH)
         shutil.copy2(live_dir / "privkey.pem", KEY_PATH)
-        os.chmod(str(KEY_PATH), 0o600)
+        KEY_PATH.chmod(0o600)
         logger.info("Certificate ready for %s", domain)
         return {"success": True}
 
@@ -392,7 +417,7 @@ def start_renewal_checker(subdomain: str, token: str):
     """Start periodic cert renewal checker."""
     global _renewal_task
     stop_renewal_checker()
-    _renewal_task = asyncio.ensure_future(_renewal_loop(subdomain, token))
+    _renewal_task = asyncio.create_task(_renewal_loop(subdomain, token))
 
 
 def stop_renewal_checker():
