@@ -440,8 +440,14 @@ async def _serve_public_key(request):
     return web.Response(status=404)
 
 
-async def start_https_server() -> bool:
-    """Start HTTPS server on port 443 serving the public key."""
+async def start_https_server(extra_get_routes: list[tuple[str, object]] | None = None) -> bool:
+    """Start HTTPS server on port 443.
+
+    Always serves the .well-known public key. Additional GET routes can be
+    supplied as (path, handler) tuples — used to route Tesla's OAuth callback
+    (`/oauth/callback`) to the wizard handler, since Tesla's redirect_uri
+    must be the public DuckDNS URL, not the HA-ingress wizard URL.
+    """
     global _https_runner
 
     if not has_cert():
@@ -460,6 +466,8 @@ async def start_https_server() -> bool:
         "/.well-known/appspecific/com.tesla.3p.public-key.pem",
         _serve_public_key,
     )
+    for path, handler in extra_get_routes or []:
+        app.router.add_get(path, handler)
 
     ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_ctx.load_cert_chain(str(CERT_PATH), str(KEY_PATH))
@@ -487,7 +495,8 @@ def https_running() -> bool:
 
 # ── Lifecycle ────────────────────────────────────────────────────────────────
 
-async def start_all(subdomain: str, token: str):
+async def start_all(subdomain: str, token: str,
+                    extra_get_routes: list[tuple[str, object]] | None = None):
     """Start IP updater, HTTPS server, UPnP port forward, and renewal checker."""
     # Try UPnP port forward (best effort — won't block if router doesn't support it)
     upnp = await open_port_upnp()
@@ -496,7 +505,7 @@ async def start_all(subdomain: str, token: str):
     else:
         logger.info("UPnP unavailable on startup: %s (manual port forward needed)", upnp.get("error", "unknown"))
     start_updater(subdomain, token)
-    await start_https_server()
+    await start_https_server(extra_get_routes=extra_get_routes)
     start_renewal_checker(subdomain, token)
 
 

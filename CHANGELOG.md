@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.7] - 2026-05-06
+
+### Fixed
+
+- DuckDNS path: route `/oauth/callback` on the public 443 HTTPS server. Previously only `.well-known/...` was served, so Tesla's OAuth redirect (`https://<sub>.duckdns.org/oauth/callback?code=...`) returned 404 and setup stalled at step 5. The wizard's OAuth handler now runs on both HA-ingress (8099) and the public DuckDNS HTTPS server.
+
 ## [0.9.6] - 2026-03-19
 
 ### Security

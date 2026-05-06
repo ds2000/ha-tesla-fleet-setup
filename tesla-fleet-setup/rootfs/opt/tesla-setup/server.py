@@ -578,7 +578,9 @@ async def api_duckdns_start(request):
     if not subdomain or not token:
         return web.json_response({"success": False, "error": "Subdomain and token required"}, status=400)
 
-    https_ok = await duckdns.start_https_server()
+    https_ok = await duckdns.start_https_server(
+        extra_get_routes=[("/oauth/callback", oauth_callback)],
+    )
     if not https_ok:
         return web.json_response({"success": False, "error": "Failed to start HTTPS server"}, status=500)
     duckdns.start_updater(subdomain, token)
@@ -791,7 +793,10 @@ async def on_startup(app):
         subdomain = state["duckdns_subdomain"]
         token = state["duckdns_token"]
         try:
-            await duckdns.start_all(subdomain, token)
+            await duckdns.start_all(
+                subdomain, token,
+                extra_get_routes=[("/oauth/callback", oauth_callback)],
+            )
             logger.info("DuckDNS active: %s.duckdns.org (HTTPS + IP updater)", subdomain)
         except Exception as e:
             logger.warning("DuckDNS startup failed: %s", e)
