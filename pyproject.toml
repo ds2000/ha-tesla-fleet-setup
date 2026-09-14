@@ -1,6 +1,6 @@
 [project]
 name = "ha-tesla-fleet-setup"
-version = "0.9.7"
+version = "0.9.8"
 description = "Home Assistant add-on for Tesla Fleet API setup and signing proxy"
 requires-python = ">=3.11"
 
@@ -52,6 +52,7 @@ ignore = [
     "B008",    # function calls in defaults (aiohttp patterns)
     "PLR0911", # too many return statements (step-by-step endpoints)
     "PLR0913", # too many arguments
+    "PLR0917", # positional arguments allowed, consistent with PLR0913
     "N999",    # module naming for HA add-on structure
     "SIM105",  # contextlib.suppress less clear than try/except
     "SIM115",  # context manager for open() in one-liners is fine

@@ -1531,7 +1531,8 @@
       </details>
     </div>
 
-    <a class="reset-link" onclick="resetWizard()">Start over</a>
+    <a class="reset-link" onclick="resetWizard()">Start over (keep signing key)</a>
+    <a class="reset-link" onclick="resetWizard(true)">Start over with a new key</a>
   </div>
 
   <script>
@@ -2319,6 +2320,9 @@
           let msg = 'Tesla returned an error';
           if (data.step === 'token') {
             msg = 'Could not authenticate with Tesla. Please check your Client ID and Client Secret.';
+          } else if (data.step === 'register' &&
+                     String(data.error || '').toLowerCase().includes('public key hash has already been taken')) {
+            msg = 'Tesla reports that this public key is already registered. For the existing setup, reuse the original Tesla developer app and public-key domain, then pair the key with your new car. For a fresh setup with a different Tesla account or developer app, choose "Start over with a new key" below. This backs up and replaces the signing key; you must complete setup and pair the new key with your car.';
           } else if (data.step === 'register') {
             msg = 'Tesla could not verify your public key. Make sure the test in Step 2 passed.';
           }
@@ -2398,10 +2402,23 @@
       });
     }
 
-    async function resetWizard() {
-      if (!confirm('This will clear all saved credentials and start over. Are you sure?')) return;
-      await fetch(`api/reset`, { method: 'POST' });
-      location.reload();
+    async function resetWizard(regenerateKeys = false) {
+      const message = regenerateKeys
+        ? 'This will clear wizard settings and credentials, stop the proxy and public-key hosting, and back up and replace the signing key. Complete setup again to install the new key in Home Assistant, then pair it with your car. Existing vehicle pairings will not work with the new key. Start over with a new key?'
+        : 'This will clear the wizard settings and saved credentials, and stop the proxy and public-key hosting. Your signing key and its registration at Tesla will be kept. Start over?';
+      if (!confirm(message)) return;
+      try {
+        const response = await fetch('api/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ regenerate_keys: regenerateKeys }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'Reset failed');
+        location.reload();
+      } catch (error) {
+        alert('Could not reset setup: ' + error.message);
+      }
     }
 
     // --- API Testing ---

@@ -3,6 +3,7 @@
 import json
 from unittest.mock import AsyncMock, patch
 
+import keygen
 import server
 
 
@@ -154,6 +155,29 @@ class TestReset:
             assert server.state["step"] == 1
             assert server.state["client_id"] is None
             assert server.state["tokens"] is None
+
+    async def test_default_reset_preserves_key(self, client):
+        original = keygen.ensure_keys()
+        await client.post("/api/reset")
+        assert keygen.ensure_keys() == original
+
+    async def test_explicit_reset_serves_new_key(self, client, setup_complete_state):
+        original = keygen.ensure_keys()
+        resp = await client.post("/api/reset", json={"regenerate_keys": True})
+        assert resp.status == 200
+        assert (await resp.json())["keys_regenerated"] is True
+        resp = await client.get("/.well-known/appspecific/com.tesla.3p.public-key.pem")
+        assert await resp.text() == keygen.get_public_key()
+        assert keygen.get_public_key() != original[1]
+        assert server.state["partner_registered"] is False
+        assert server.state["tokens"] is None
+
+    async def test_invalid_regeneration_option_preserves_setup(self, client, setup_complete_state):
+        original = keygen.ensure_keys()
+        resp = await client.post("/api/reset", json={"regenerate_keys": "false"})
+        assert resp.status == 400
+        assert server.state["partner_registered"] is True
+        assert keygen.ensure_keys() == original
 
 
 class TestProxyEndpoints:

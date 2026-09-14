@@ -729,8 +729,17 @@ async def api_cloudflare_status(request):
 
 
 async def api_reset(request):
-    """Reset wizard state (start over)."""
+    """Reset wizard state, optionally backing up and replacing the signing key."""
     global state
+    data = await request.json() if request.can_read_body else {}
+    if not isinstance(data, dict) or not isinstance(data.get("regenerate_keys", False), bool):
+        return web.json_response({"error": "regenerate_keys must be a boolean"}, status=400)
+    regenerate = data.get("regenerate_keys", False)
+    await proxy_manager.stop()
+    await duckdns.stop_all()
+    await tunnel.stop()
+    if regenerate:
+        keygen.ensure_keys(regenerate=True)
     state = {
         "step": 1,
         "public_key_url": None,
@@ -742,14 +751,13 @@ async def api_reset(request):
         "tokens": None,
         "duckdns_subdomain": None,
         "duckdns_token": None,
+        "api_region": None,
     }
     save_state()
     _vin_cache.clear()
-    await proxy_manager.stop()
-    await duckdns.stop_all()
-    await tunnel.stop()
+    tesla_api.set_api_base(tesla_api.DEFAULT_API_BASE)
     logger.info("Wizard state reset")
-    return web.json_response({"success": True})
+    return web.json_response({"success": True, "keys_regenerated": regenerate})
 
 
 _INGRESS_PATH_RE = re.compile(r"^/[a-zA-Z0-9/_-]*$")

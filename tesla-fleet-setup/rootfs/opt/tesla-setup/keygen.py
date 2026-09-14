@@ -1,6 +1,7 @@
 """EC P-256 key pair generation for Tesla Fleet API."""
 
 import os
+import tempfile
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
@@ -22,12 +23,18 @@ def _write_secure(path: Path, data: str, mode: int = 0o600):
     os.replace(tmp, path)
 
 
-def ensure_keys() -> tuple[str, str]:
-    """Generate EC P-256 key pair if not already present. Returns (private_pem, public_pem)."""
+def ensure_keys(*, regenerate: bool = False) -> tuple[str, str]:
+    """Return the EC P-256 pair; back up existing keys before explicit regeneration."""
     KEYS_DIR.mkdir(parents=True, exist_ok=True)
 
-    if PRIVATE_KEY_PATH.exists() and PUBLIC_KEY_PATH.exists():
+    if not regenerate and PRIVATE_KEY_PATH.exists() and PUBLIC_KEY_PATH.exists():
         return PRIVATE_KEY_PATH.read_text(), PUBLIC_KEY_PATH.read_text()
+
+    if regenerate:
+        backup_dir = Path(tempfile.mkdtemp(prefix="backup-", dir=KEYS_DIR))
+        for path in (PRIVATE_KEY_PATH, PUBLIC_KEY_PATH):
+            if path.exists():
+                _write_secure(backup_dir / path.name, path.read_text())
 
     private_key = ec.generate_private_key(ec.SECP256R1())
 

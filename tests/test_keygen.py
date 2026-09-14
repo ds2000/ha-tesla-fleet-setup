@@ -47,6 +47,32 @@ class TestKeyGeneration:
         result = keygen.get_public_key()
         assert result == expected
 
+    def test_regeneration_backs_up_and_replaces_pair(self):
+        original = keygen.ensure_keys()
+        replacement = keygen.ensure_keys(regenerate=True)
+        assert replacement[0] != original[0]
+        assert replacement[1] != original[1]
+        assert keygen.ensure_keys() == replacement
+        backup, = keygen.KEYS_DIR.glob("backup-*")
+        assert (backup / "private.pem").read_text() == original[0]
+        assert (backup / "public.pem").read_text() == original[1]
+        assert stat.S_IMODE(backup.stat().st_mode) == 0o700
+        assert stat.S_IMODE((backup / "private.pem").stat().st_mode) == 0o600
+        priv = load_pem_private_key(replacement[0].encode(), password=None)
+        pub = load_pem_public_key(replacement[1].encode())
+        assert priv.public_key().public_numbers() == pub.public_numbers()
+
+    def test_backup_failure_keeps_original_pair(self):
+        from unittest.mock import patch
+
+        import pytest
+
+        original = keygen.ensure_keys()
+        with patch.object(keygen, "_write_secure", side_effect=OSError("disk full")):
+            with pytest.raises(OSError, match="disk full"):
+                keygen.ensure_keys(regenerate=True)
+        assert keygen.ensure_keys() == original
+
     def test_keys_not_empty(self):
         private_pem, public_pem = keygen.ensure_keys()
         assert len(private_pem) > 100
